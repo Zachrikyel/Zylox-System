@@ -1,40 +1,83 @@
-/* Estilos Específicos del Módulo */
+/* ZYLOX THEME OVERRIDES */
+
+:root {
+    --cyber-primary: #B026FF;
+    --cyber-secondary: #39FF14;
+    --cyber-bg: rgba(10, 10, 10, 0.85);
+    --cyber-border: rgba(255, 255, 255, 0.1);
+}
+
 body {
-    background-color: transparent;
-    /* Deja ver el fondo de la app principal */
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: transparent !important;
+    /* Dejar ver el fondo del dashboard */
+    font-family: 'Inter', sans-serif;
 }
 
-.glass-panel {
-    background: rgba(24, 24, 27, 0.6);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+/* 1. Secuestrar los paneles grises de Tailwind */
+.bg-zinc-900,
+.bg-zinc-950,
+.bg-gray-900 {
+    background-color: var(--cyber-bg) !important;
+    border: 1px solid var(--cyber-border) !important;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+    /* Aplicar el corte tecnológico */
+    clip-path: polygon(15px 0, 100% 0,
+            100% calc(100% - 15px),
+            calc(100% - 15px) 100%,
+            0 100%,
+            0 15px);
+    border-radius: 0 !important;
+    /* Eliminar bordes redondeados estándar */
 }
 
-.input-field {
-    width: 100%;
-    background-color: rgba(9, 9, 11, 0.5);
-    border: 1px solid rgba(63, 63, 70, 0.8);
-    border-radius: 0.5rem;
-    padding: 0.5rem;
-    color: white;
-    font-size: 0.875rem;
-    transition: all 0.2s;
+/* 2. Inputs Cyberpunk */
+input,
+select,
+textarea {
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    border: 1px solid #333 !important;
+    color: white !important;
+    border-radius: 0 !important;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 10px 100%, 0 calc(100% - 10px));
 }
 
-.input-field:focus {
-    border-color: #06b6d4;
-    outline: none;
-    background-color: rgba(9, 9, 11, 0.9);
+input:focus,
+select:focus {
+    border-color: var(--cyber-primary) !important;
+    box-shadow: 0 0 10px rgba(176, 38, 255, 0.2);
 }
 
-.label-text {
-    display: block;
-    font-size: 0.75rem;
-    color: #a1a1aa;
-    margin-bottom: 0.25rem;
+/* 3. Botones */
+button {
+    border-radius: 0 !important;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 800 !important;
+    transition: all 0.3s ease;
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
 }
 
-.no-scrollbar::-webkit-scrollbar {
-    display: none;
+/* Botones Primarios (Adivinando clases comunes o forzando estilos generales de botones submit) */
+button[class*="bg-white"],
+button[class*="bg-blue"] {
+    background: var(--cyber-primary) !important;
+    color: black !important;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 15px var(--cyber-primary);
+}
+
+/* 4. Textos */
+h1,
+h2,
+h3 {
+    text-transform: uppercase;
+    font-style: italic;
+}
+
+.text-cyan-400 {
+    color: var(--cyber-secondary) !important;
 }

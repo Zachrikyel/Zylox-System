@@ -4,101 +4,355 @@ body {
     -webkit-tap-highlight-color: transparent;
 }
 
-/* Glassmorphism Refinado */
+/* Glassmorphism Base */
 .glass-panel {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(12px);
+    background: rgba(20, 20, 20, 0.7);
+    backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* LA FORMA: Cyber-Rhombus (Esquinas cortadas asimétricas) */
+/* Corta la esquina superior izquierda e inferior derecha */
+.cyber-shape {
+    clip-path: polygon(20px 0, 100% 0,
+            100% calc(100% - 20px),
+            calc(100% - 20px) 100%,
+            0 100%,
+            0 20px);
     transition: all 0.3s ease;
 }
 
-.glass-panel:hover {
-    border-color: rgba(6, 182, 212, 0.3);
-    /* Cyan Glow */
+/* Efecto Hover: Reduce el corte ligeramente para dar sensación de interacción mecánica */
+.cyber-shape:hover {
+    clip-path: polygon(10px 0, 100% 0,
+            100% calc(100% - 10px),
+            calc(100% - 10px) 100%,
+            0 100%,
+            0 10px);
     transform: translateY(-2px);
-}
-
-/* Botón de Salir (Rojo Neón) */
-.btn-logout {
-    background: rgba(127, 29, 29, 0.2);
-    border: 1px solid rgba(220, 38, 38, 0.3);
-    color: #fca5a5;
-    transition: all 0.2s;
-}
-
-.btn-logout:hover {
-    background: rgba(127, 29, 29, 0.5);
-    color: white;
-    box-shadow: 0 0 10px rgba(220, 38, 38, 0.4);
-}
-
-/* Pantalla de Acceso Denegado (Muerte Súbita) */
-.denied-screen {
-    background: radial-gradient(circle at center, #2a0a0a 0%, #000000 100%);
-    z-index: 9999;
-    /* Encima de todo */
-}
-
-.scan-line {
-    width: 100%;
-    height: 2px;
-    background: rgba(255, 0, 0, 0.3);
-    position: absolute;
-    animation: scan 3s linear infinite;
-}
-
-@keyframes scan {
-    0% {
-        top: 0%;
-    }
-
-    100% {
-        top: 100%;
-    }
 }
 
 .no-scrollbar::-webkit-scrollbar {
     display: none;
 }
 
-/* public/core/styles.css */
+/* ===============================================
+   FOLDER CARD DESIGN - GeekWorldland Style
+   =============================================== */
 
-.denied-screen {
-    background-color: #000;
-    background-image: radial-gradient(circle at center, #300 0%, #000 70%);
-    z-index: 10000 !important;
-    /* Por encima de todo */
-}
-
-/* Animación de escáner */
-.scan-line {
-    position: absolute;
-    top: 0;
-    left: 0;
+/* Contenedor principal del folder */
+.folder-card {
+    position: relative;
     width: 100%;
-    height: 4px;
-    background: rgba(255, 0, 0, 0.5);
-    box-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
-    animation: scan 2s linear infinite;
+    aspect-ratio: 1;
+    cursor: pointer;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    perspective: 1000px;
 }
 
-@keyframes scan {
-    0% {
-        top: 0%;
-        opacity: 0;
+.folder-card:hover {
+    transform: translateY(-8px) rotateX(5deg);
+}
+
+/* Cuerpo del folder con glassmorphism */
+.folder-body {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(30, 30, 35, 0.9) 0%, rgba(20, 20, 25, 0.95) 100%);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.4s ease;
+}
+
+.folder-card:hover .folder-body {
+    border-color: var(--folder-color, rgba(255, 255, 255, 0.2));
+    box-shadow:
+        0 0 20px -5px var(--folder-color),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Tab del folder en la parte superior */
+.folder-tab {
+    position: absolute;
+    top: -8px;
+    left: 12px;
+    width: 35%;
+    height: 12px;
+    background: linear-gradient(135deg, rgba(40, 40, 45, 0.9) 0%, rgba(30, 30, 35, 0.95) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    z-index: 2;
+}
+
+/* Barra de color en la parte inferior */
+.folder-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    background: var(--folder-color);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.folder-card:hover .folder-bar {
+    height: 48px;
+    box-shadow: 0 -10px 30px -5px var(--folder-color);
+}
+
+/* Icono circular dentro de la barra */
+.folder-icon-circle {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.folder-card:hover .folder-icon-circle {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.folder-icon-circle svg {
+    width: 14px;
+    height: 14px;
+    stroke: #1a1a1a;
+    stroke-width: 2.5;
+}
+
+/* Nombre del folder en la barra */
+.folder-name {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(0, 0, 0, 0.85);
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+    width: 100%;
+}
+
+/* Contenido del folder (área central) */
+.folder-content {
+    position: absolute;
+    top: 12px;
+    left: 0;
+    right: 0;
+    bottom: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+}
+
+/* Stack de cartas animado */
+.folder-stack {
+    position: relative;
+    width: 70%;
+    height: 70%;
+}
+
+.folder-stack-card {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(145deg, rgba(50, 50, 55, 0.6) 0%, rgba(40, 40, 45, 0.4) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.folder-stack-card:nth-child(1) {
+    z-index: 3;
+}
+
+.folder-stack-card:nth-child(2) {
+    z-index: 2;
+}
+
+.folder-stack-card:nth-child(3) {
+    z-index: 1;
+}
+
+.folder-card:hover .folder-stack-card:nth-child(2) {
+    transform: translate(6px, -6px) rotate(3deg);
+    background: linear-gradient(145deg, rgba(60, 60, 65, 0.7) 0%, rgba(50, 50, 55, 0.5) 100%);
+}
+
+.folder-card:hover .folder-stack-card:nth-child(3) {
+    transform: translate(12px, -12px) rotate(6deg);
+    background: linear-gradient(145deg, rgba(70, 70, 75, 0.6) 0%, rgba(60, 60, 65, 0.4) 100%);
+}
+
+/* Glow del stack en hover */
+.folder-stack::after {
+    content: '';
+    position: absolute;
+    inset: -20px;
+    background: radial-gradient(ellipse at center, var(--folder-color) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: 0;
+    filter: blur(20px);
+}
+
+.folder-card:hover .folder-stack::after {
+    opacity: 0.3;
+}
+
+/* Icono central grande (en stack card principal) */
+.folder-main-icon {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 4;
+}
+
+.folder-main-icon svg {
+    width: 32px;
+    height: 32px;
+    stroke: rgba(255, 255, 255, 0.4);
+    stroke-width: 1.5;
+    transition: all 0.4s ease;
+}
+
+.folder-card:hover .folder-main-icon svg {
+    stroke: var(--folder-color);
+    filter: drop-shadow(0 0 8px var(--folder-color));
+    transform: scale(1.1);
+}
+
+/* Estado bloqueado */
+.folder-card.locked {
+    pointer-events: none;
+}
+
+.folder-card.locked .folder-body {
+    background: linear-gradient(135deg, rgba(25, 25, 28, 0.6) 0%, rgba(18, 18, 20, 0.7) 100%);
+    border-color: rgba(255, 255, 255, 0.03);
+}
+
+.folder-card.locked .folder-bar {
+    background: rgba(50, 50, 55, 0.5);
+}
+
+.folder-card.locked .folder-icon-circle {
+    background: rgba(80, 80, 85, 0.6);
+}
+
+.folder-card.locked .folder-icon-circle svg {
+    stroke: rgba(120, 120, 125, 0.5);
+}
+
+.folder-card.locked .folder-name {
+    color: rgba(100, 100, 105, 0.5);
+}
+
+/* Animaciones */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
     }
 
-    10% {
-        opacity: 1;
+    to {
+        transform: rotate(360deg);
     }
+}
 
-    90% {
-        opacity: 1;
-    }
+@keyframes pulse-glow {
 
+    0%,
     100% {
-        top: 100%;
-        opacity: 0;
+        opacity: 0.5;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+/* Grid responsive mejorado - Carpetas más pequeñas para móvil */
+@media (max-width: 640px) {
+    .folder-card {
+        aspect-ratio: auto;
+        height: 70px;
+    }
+
+    .folder-body {
+        border-radius: 8px;
+    }
+
+    .folder-tab {
+        height: 6px;
+        top: -4px;
+        width: 25%;
+        left: 8px;
+        border-radius: 4px 4px 0 0;
+    }
+
+    .folder-content {
+        top: 6px;
+        bottom: 28px;
+        padding: 4px;
+    }
+
+    .folder-stack {
+        width: 50%;
+        height: 80%;
+    }
+
+    .folder-stack-card {
+        border-radius: 4px;
+    }
+
+    .folder-main-icon svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .folder-bar {
+        height: 28px;
+        padding: 0 8px;
+        gap: 6px;
+        border-radius: 0 0 8px 8px;
+    }
+
+    .folder-card:hover .folder-bar {
+        height: 30px;
+    }
+
+    .folder-icon-circle {
+        width: 18px;
+        height: 18px;
+        min-width: 18px;
+    }
+
+    .folder-icon-circle svg {
+        width: 10px;
+        height: 10px;
+    }
+
+    .folder-name {
+        font-size: 9px;
+        letter-spacing: 0.02em;
     }
 }
