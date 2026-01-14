@@ -1,0 +1,104 @@
+body {
+    background-color: #050505;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Glassmorphism Refinado */
+.glass-panel {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+}
+
+.glass-panel:hover {
+    border-color: rgba(6, 182, 212, 0.3);
+    /* Cyan Glow */
+    transform: translateY(-2px);
+}
+
+/* Botón de Salir (Rojo Neón) */
+.btn-logout {
+    background: rgba(127, 29, 29, 0.2);
+    border: 1px solid rgba(220, 38, 38, 0.3);
+    color: #fca5a5;
+    transition: all 0.2s;
+}
+
+.btn-logout:hover {
+    background: rgba(127, 29, 29, 0.5);
+    color: white;
+    box-shadow: 0 0 10px rgba(220, 38, 38, 0.4);
+}
+
+/* Pantalla de Acceso Denegado (Muerte Súbita) */
+.denied-screen {
+    background: radial-gradient(circle at center, #2a0a0a 0%, #000000 100%);
+    z-index: 9999;
+    /* Encima de todo */
+}
+
+.scan-line {
+    width: 100%;
+    height: 2px;
+    background: rgba(255, 0, 0, 0.3);
+    position: absolute;
+    animation: scan 3s linear infinite;
+}
+
+@keyframes scan {
+    0% {
+        top: 0%;
+    }
+
+    100% {
+        top: 100%;
+    }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* public/core/styles.css */
+
+.denied-screen {
+    background-color: #000;
+    background-image: radial-gradient(circle at center, #300 0%, #000 70%);
+    z-index: 10000 !important;
+    /* Por encima de todo */
+}
+
+/* Animación de escáner */
+.scan-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 0, 0, 0.5);
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
+    animation: scan 2s linear infinite;
+}
+
+@keyframes scan {
+    0% {
+        top: 0%;
+        opacity: 0;
+    }
+
+    10% {
+        opacity: 1;
+    }
+
+    90% {
+        opacity: 1;
+    }
+
+    100% {
+        top: 100%;
+        opacity: 0;
+    }
+}

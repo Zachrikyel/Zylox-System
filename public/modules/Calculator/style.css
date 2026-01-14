@@ -1,0 +1,40 @@
+/* Estilos Específicos del Módulo */
+body {
+    background-color: transparent;
+    /* Deja ver el fondo de la app principal */
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.glass-panel {
+    background: rgba(24, 24, 27, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.input-field {
+    width: 100%;
+    background-color: rgba(9, 9, 11, 0.5);
+    border: 1px solid rgba(63, 63, 70, 0.8);
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    color: white;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+}
+
+.input-field:focus {
+    border-color: #06b6d4;
+    outline: none;
+    background-color: rgba(9, 9, 11, 0.9);
+}
+
+.label-text {
+    display: block;
+    font-size: 0.75rem;
+    color: #a1a1aa;
+    margin-bottom: 0.25rem;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
