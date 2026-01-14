@@ -1,39 +1,4 @@
-/**
- * ============================================
- * SICMA CALCULATOR - CONFIGURACIÓN
- * Supabase Client + Constants + Icons
- * ============================================
- */
-
-// ============================================
-// SUPABASE CLIENT
-// ============================================
-
-const SUPABASE_URL = 'https://stjvnjmqezdcxsdodnfc.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0anZuam1xZXpkY3hzZG9kbmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNTE5NTUsImV4cCI6MjA3OTkyNzk1NX0.nh111C74tbdSreSdn7sRQlI8PPNnOCpod-Y1nD3210o';
-
-// Crear cliente de Supabase usando el SDK del CDN
-const supabaseClientInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-async function checkAuth() {
-  try {
-    const { data: { user }, error } = await supabaseClientInstance.auth.getUser();
-    if (error) return { authenticated: false, user: null };
-    return { authenticated: !!user, user: user };
-  } catch (error) {
-    return { authenticated: false, user: null };
-  }
-}
-
-window.supabaseClient = {
-  client: supabaseClientInstance,
-  checkAuth
-};
-
-// ============================================
-// CONSTANTS
-// ============================================
-
+// 1. CONSTANTES DEL SISTEMA (Se cargan primero para evitar bloqueos)
 const PRINTERS = [
   { id: 'p1s', name: 'Bambu Lab P1S', watts: 300, wear: 800 },
   { id: 'a1', name: 'Bambu Lab A1', watts: 110, wear: 500 },
@@ -68,38 +33,10 @@ const PACKAGING = [
 ];
 
 const COMPLEXITY_LEVELS = {
-  simple: {
-    name: 'Simple (Solo Impresión)',
-    postProcessMinutes: 5,
-    operatorMinutes: 0,
-    failureRisk: 0.02,
-    suppliesCost: 200,
-    description: 'Solo sacar de impresora y revisar'
-  },
-  easy: {
-    name: 'Fácil',
-    postProcessMinutes: 60,
-    operatorMinutes: 5,
-    failureRisk: 0.10,
-    suppliesCost: 2000,
-    description: 'Limpieza básica y lijado ligero'
-  },
-  medium: {
-    name: 'Media',
-    postProcessMinutes: 120,
-    operatorMinutes: 5,
-    failureRisk: 0.20,
-    suppliesCost: 4000,
-    description: 'Lijado, acabados básicos'
-  },
-  hard: {
-    name: 'Difícil',
-    postProcessMinutes: 180,
-    operatorMinutes: 10,
-    failureRisk: 0.40,
-    suppliesCost: 10000,
-    description: 'Múltiples acabados, ensamblaje'
-  }
+  simple: { name: 'Simple (Solo Impresión)', postProcessMinutes: 5, operatorMinutes: 0, failureRisk: 0.02, suppliesCost: 200, description: 'Solo sacar de impresora y revisar' },
+  easy: { name: 'Fácil', postProcessMinutes: 60, operatorMinutes: 5, failureRisk: 0.10, suppliesCost: 2000, description: 'Limpieza básica y lijado ligero' },
+  medium: { name: 'Media', postProcessMinutes: 120, operatorMinutes: 5, failureRisk: 0.20, suppliesCost: 4000, description: 'Lijado, acabados básicos' },
+  hard: { name: 'Difícil', postProcessMinutes: 180, operatorMinutes: 10, failureRisk: 0.40, suppliesCost: 10000, description: 'Múltiples acabados, ensamblaje' }
 };
 
 const GATEWAYS = [
@@ -118,53 +55,12 @@ const VARIANT_CONFIGS = [
   { shipping: 'national', packaging: 'large', name: 'Domicilio Nacional + Empaque Grande' }
 ];
 
-// Variantes Maestras para ADN Técnico (Plan Maestro de Ingeniería)
-const MASTER_VARIANT_CONFIGS = [
-  {
-    id: 'V1',
-    name: 'Pago Directo + Recogida',
-    gateway: 'nequi',
-    shipping: 'pickup',
-    packaging: 'small',
-    isMinimum: true,
-    description: 'Precio mínimo sin comisiones'
-  },
-  {
-    id: 'V2',
-    name: 'Pago Directo + Envío Local',
-    gateway: 'nequi',
-    shipping: 'local',
-    packaging: 'medium',
-    description: 'Sin comisión, con envío'
-  },
-  {
-    id: 'V3',
-    name: 'Wompi + Recogida',
-    gateway: 'wompi',
-    shipping: 'pickup',
-    packaging: 'small',
-    description: 'Con comisión, sin envío'
-  },
-  {
-    id: 'V4',
-    name: 'Wompi + Envío Local (Estándar)',
-    gateway: 'wompi',
-    shipping: 'local',
-    packaging: 'medium',
-    isStandard: true,
-    description: 'Configuración estándar para tienda'
-  }
-];
+const MASTER_VARIANT_CONFIGS = [];
 
-// Configuración para lógica N-1 de paquetes
 const PACKAGE_CONFIG = {
-  DEFAULT_SHIPPING_DEDUCTION: 15000, // Costo envío a restar en productos adicionales
-  DISCOUNT_OPTIONS: [0, 10, 15, 20],  // Escenarios de descuento para matriz
-  MARGIN_THRESHOLDS: {
-    GREEN: 30,   // >= 30% = bueno
-    YELLOW: 20,  // >= 20% = aceptable
-    RED: 0       // < 20% = bajo
-  }
+  DEFAULT_SHIPPING_DEDUCTION: 15000,
+  DISCOUNT_OPTIONS: [0, 10, 15, 20],
+  MARGIN_THRESHOLDS: { GREEN: 30, YELLOW: 20, RED: 0 }
 };
 
 const SYSTEM_CONFIG = {
@@ -179,36 +75,21 @@ const SYSTEM_CONFIG = {
   WOMPI_IVA: 0.19
 };
 
-// ============================================
-// USUARIOS AUTORIZADOS (Whitelist)
-// Solo estos usuarios pueden acceder a SICMA
-// ============================================
 const AUTHORIZED_USERS = [
   'c4a011c5-d8af-47ab-bc2f-f245b3cf6462',
   'a8f3681d-ab81-44d5-9a18-f365092d5714',
   '9d2bca2f-eec2-49ef-b843-6691a0d3ed2d'
 ];
 
+// EXPOSICIÓN GLOBAL DE CONSTANTES (CRÍTICO)
 window.SICMA_CONSTANTS = {
-  PRINTERS,
-  NOZZLES,
-  MATERIALS,
-  SHIPPING_OPTIONS,
-  PACKAGING,
-  COMPLEXITY_LEVELS,
-  GATEWAYS,
-  VARIANT_CONFIGS,
-  MASTER_VARIANT_CONFIGS,
-  PACKAGE_CONFIG,
-  SYSTEM_CONFIG,
-  AUTHORIZED_USERS
+  PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING,
+  COMPLEXITY_LEVELS, GATEWAYS, VARIANT_CONFIGS, MASTER_VARIANT_CONFIGS,
+  PACKAGE_CONFIG, SYSTEM_CONFIG, AUTHORIZED_USERS
 };
 
-// ============================================
-// ICONS
-// ============================================
-
-const Icons = {
+// 2. ICONOS
+window.Icons = {
   ChevronLeft: (size = 20) => `<svg width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`,
   ChevronRight: (size = 20) => `<svg width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
   Zap: (size = 20) => `<svg width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
@@ -234,6 +115,38 @@ const Icons = {
   X: (size = 20) => `<svg width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
 };
 
-window.Icons = Icons;
+console.log('✅ Config: Constants & Icons Loaded');
 
-console.log('✅ Config loaded (Supabase + Constants + Icons)');
+// 3. SUPABASE CLIENT (Intento Seguro)
+const SUPABASE_URL = 'https://stjvnjmqezdcxsdodnfc.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0anZuam1xZXpkY3hzZG9kbmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNTE5NTUsImV4cCI6MjA3OTkyNzk1NX0.nh111C74tbdSreSdn7sRQlI8PPNnOCpod-Y1nD3210o';
+
+let supabaseClientInstance = null;
+
+try {
+  if (window.supabase && window.supabase.createClient) {
+    supabaseClientInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    console.log('✅ Supabase conectado');
+  } else {
+    console.warn('⚠️ Supabase SDK no detectado. Modo Offline.');
+  }
+} catch (e) {
+  console.error('❌ Error iniciando Supabase:', e);
+}
+
+// Fallback auth function
+async function checkAuth() {
+  if (!supabaseClientInstance) return { authenticated: false, user: null };
+  try {
+    const { data: { user }, error } = await supabaseClientInstance.auth.getUser();
+    if (error) return { authenticated: false, user: null };
+    return { authenticated: !!user, user: user };
+  } catch (error) {
+    return { authenticated: false, user: null };
+  }
+}
+
+window.supabaseClient = {
+  client: supabaseClientInstance,
+  checkAuth
+};

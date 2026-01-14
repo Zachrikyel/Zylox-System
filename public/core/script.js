@@ -69,40 +69,55 @@ function renderDashboard(user) {
         'white': '#e4e4e7'
     };
 
-    ZYLOX_CONFIG.tools.forEach((tool) => {
-        const isLocked = tool.id === 'locked';
-        const folderColor = colorHexMap[tool.color] || '#e4e4e7';
+    // Definir las filas en forma piramidal: 2, 3, 3
+    const pyramidRows = [
+        ZYLOX_CONFIG.tools.slice(0, 2),   // Primera fila: 2 carpetas
+        ZYLOX_CONFIG.tools.slice(2, 5),   // Segunda fila: 3 carpetas
+        ZYLOX_CONFIG.tools.slice(5, 8)    // Tercera fila: 3 carpetas
+    ];
 
-        const wrapper = document.createElement('div');
-        wrapper.className = `folder-card ${isLocked ? 'locked' : ''}`;
-        wrapper.style.setProperty('--folder-color', folderColor);
+    pyramidRows.forEach((rowTools) => {
+        // Crear contenedor de fila
+        const row = document.createElement('div');
+        row.className = 'flex justify-center gap-4 md:gap-6 w-full';
 
-        if (!isLocked) {
-            wrapper.onclick = () => launchTool(tool.id);
-        }
+        rowTools.forEach((tool) => {
+            const isLocked = tool.id === 'locked';
+            const folderColor = colorHexMap[tool.color] || '#e4e4e7';
 
-        wrapper.innerHTML = `
-            <div class="folder-tab"></div>
-            <div class="folder-body">
-                <div class="folder-content">
-                    <div class="folder-stack">
-                        <div class="folder-stack-card"></div>
-                        <div class="folder-stack-card"></div>
-                        <div class="folder-stack-card"></div>
-                        <div class="folder-main-icon">
-                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                                ${ICONS[tool.icon]}
-                            </svg>
+            const wrapper = document.createElement('div');
+            wrapper.className = `folder-card ${isLocked ? 'locked' : ''}`;
+            wrapper.style.setProperty('--folder-color', folderColor);
+
+            if (!isLocked) {
+                wrapper.onclick = () => launchTool(tool.id);
+            }
+
+            wrapper.innerHTML = `
+                <div class="folder-tab"></div>
+                <div class="folder-body">
+                    <div class="folder-content">
+                        <div class="folder-stack">
+                            <div class="folder-stack-card"></div>
+                            <div class="folder-stack-card"></div>
+                            <div class="folder-stack-card"></div>
+                            <div class="folder-main-icon">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    ${ICONS[tool.icon]}
+                                </svg>
+                            </div>
                         </div>
                     </div>
+                    <div class="folder-bar">
+                        <span class="folder-label">${tool.name}</span>
+                    </div>
                 </div>
-                <div class="folder-bar">
-                    <span class="folder-name">${tool.name}</span>
-                </div>
-            </div>
-        `;
+            `;
 
-        grid.appendChild(wrapper);
+            row.appendChild(wrapper);
+        });
+
+        grid.appendChild(row);
     });
 
     if (user.user_metadata?.avatar_url) {

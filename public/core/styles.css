@@ -135,19 +135,23 @@ body {
     stroke-width: 2.5;
 }
 
-/* Nombre del folder en la barra */
-.folder-name {
-    font-size: 11px;
-    font-weight: 800;
+/* Nombre del folder en la barra - Estilo Label */
+.folder-label {
+    font-size: 10px;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: rgba(0, 0, 0, 0.85);
-    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.2);
+    letter-spacing: 0.08em;
+    color: rgba(0, 0, 0, 0.75);
+    text-align: center;
+    width: 100%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    text-align: center;
-    width: 100%;
+}
+
+/* Fixed width for pyramid layout */
+.folder-card {
+    width: 80px;
 }
 
 /* Contenido del folder (área central) */
@@ -295,6 +299,7 @@ body {
     .folder-card {
         aspect-ratio: auto;
         height: 70px;
+        width: 90px;
     }
 
     .folder-body {
@@ -351,8 +356,8 @@ body {
         height: 10px;
     }
 
-    .folder-name {
-        font-size: 9px;
+    .folder-label {
+        font-size: 8px;
         letter-spacing: 0.02em;
     }
 }

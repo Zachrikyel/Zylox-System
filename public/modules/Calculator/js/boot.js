@@ -1,17 +1,11 @@
-/**
- * ZYLOX MODULE BOOTLOADER
- * Reemplaza la lógica de routing/auth original de SICMA
- */
-
-// 1. Inicializar Estado Global (Simulando lo que hacía tu app.js)
+// 1. Inicializar Estado Global
 window.appState = {
-  screen: 'calculator', // Forzamos pantalla calculadora directo
+  screen: 'home',      // <--- FORZAMOS INICIO EN EL MENÚ
   currentQuote: null,
-  user: null,          // Se llenará desde el padre
-  isAuthorized: true   // Asumimos true porque el Dashboard ya filtró
+  user: null,
+  isAuthorized: true
 };
 
-// 2. Función de Navegación Simplificada (Para que los botones internos funcionen)
 window.navigateTo = (screen) => {
   console.log(`⚡ Módulo navegando a: ${screen}`);
   window.appState.screen = screen;
@@ -23,29 +17,47 @@ function renderModule() {
   const root = document.getElementById('root');
   const screen = window.appState.screen;
 
-  // Usamos tus componentes originales
+  // Verificar si los componentes cargaron
   if (window.Components) {
-    if (screen === 'calculator') root.innerHTML = window.Components.Calculator();
-    else if (screen === 'history') root.innerHTML = window.Components.History();
-    else if (screen === 'packages') root.innerHTML = window.Components.PackageCalculator();
-    else root.innerHTML = window.Components.Calculator(); // Fallback
+    try {
+      if (screen === 'home') {
+        root.innerHTML = window.Components.HomeScreen();
+      }
+      else if (screen === 'calculator') {
+        root.innerHTML = window.Components.Calculator();
+      }
+      else if (screen === 'history') {
+        root.innerHTML = window.Components.History();
+      }
+      else if (screen === 'packages') {
+        root.innerHTML = window.Components.PackageCalculator();
+      }
+      else {
+        root.innerHTML = window.Components.HomeScreen();
+      }
+    } catch (e) {
+      console.error("❌ Error renderizando pantalla:", e);
+      root.innerHTML = `<div class="text-red-500 text-center p-10">Error de interfaz: ${e.message}</div>`;
+    }
   } else {
-    console.error("❌ CRITICAL: window.Components no cargó. Verifica components.js");
+    console.error("❌ CRITICAL: window.Components no cargó.");
+    // Reintentar en 500ms por si es lag de carga
+    setTimeout(renderModule, 500);
   }
 }
 
-// 4. Inicialización
 document.addEventListener('DOMContentLoaded', async () => {
-  // Intentar obtener usuario del contexto de Supabase (Local Storage compartido)
   try {
-    const { data: { session } } = await window.supabaseClient.client.auth.getSession();
-    if (session?.user) {
-      window.appState.user = session.user;
+    // Intentar obtener usuario solo si el cliente existe
+    if (window.supabaseClient && window.supabaseClient.client) {
+      const { data: { session } } = await window.supabaseClient.client.auth.getSession();
+      if (session?.user) {
+        window.appState.user = session.user;
+      }
     }
   } catch (e) {
-    console.warn("⚠️ No se pudo sincronizar sesión con Supabase, usando modo invitado.");
+    console.warn("Modo invitado/Offline", e);
   }
 
-  // Arrancar interfaz
   renderModule();
 });

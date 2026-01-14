@@ -690,3 +690,11 @@ window.Storage = {
 };
 
 console.log('✅ Utils loaded (Formatters + Calculations + Storage)');
+
+// --- ZYLOX BRIDGE: EXPOSE UTILS TO WINDOW ---
+if (typeof Icons !== 'undefined') window.Icons = Icons;
+if (typeof Formatters !== 'undefined') window.Formatters = Formatters;
+if (typeof Calculations !== 'undefined') window.Calculations = Calculations;
+if (typeof Storage !== 'undefined') window.Storage = Storage;
+
+console.log('✅ ZYLOX UTILS LOADED');
