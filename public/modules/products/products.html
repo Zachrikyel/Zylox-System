@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zylox Products</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <link rel="stylesheet" href="../Calculator/style.css">
+    <style>
+        :root {
+            --cyber-primary: #39FF14;
+            /* NEO GREEN OVERRIDE */
+            --cyber-secondary: #B026FF;
+        }
+
+        .text-neo {
+            color: #39FF14;
+        }
+
+        .bg-neo {
+            background-color: #39FF14;
+        }
+
+        .border-neo {
+            border-color: #39FF14;
+        }
+
+        .shadow-neo {
+            box-shadow: 0 0 15px rgba(57, 255, 20, 0.2);
+        }
+    </style>
+</head>
+
+<body class="bg-transparent text-white h-screen overflow-hidden selection:bg-green-500/30">
+
+    <div id="root" class="h-full w-full overflow-y-auto no-scrollbar p-0">
+        <div class="flex items-center justify-center h-full">
+            <div class="flex flex-col items-center gap-4">
+                <div class="w-12 h-12 border-4 border-[#39FF14] border-t-transparent rounded-full animate-spin"></div>
+                <div class="text-xs font-mono text-[#39FF14] animate-pulse uppercase">Cargando Inventario...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/boot.js"></script>
+
+</body>
+
+</html>

@@ -734,7 +734,30 @@ function renderHistoryItems(state) {
 
 window.loadHistoryData = async () => { try { const [q, p] = await Promise.all([window.Storage.getQuotes(50, 0), window.Storage.getPackages(50, 0)]); window.historyState.quotes = q; window.historyState.packages = p; window.historyState.loading = false; renderHistory(); } catch (error) { window.historyState.loading = false; renderHistory(); } };
 window.updateHistoryFilter = (filter) => { window.historyState.filter = filter; renderHistory(); };
-window.updateHistorySearch = (term) => { window.historyState.searchTerm = term; renderHistory(); };
+window.updateHistorySearch = (term) => {
+  window.historyState.searchTerm = term;
+  // Solo actualizar la lista sin re-renderizar todo (preserva foco del input)
+  const listContainer = document.querySelector('main .max-w-md.space-y-3');
+  if (!listContainer) return renderHistory();
+
+  // Encontrar el contenedor de items (después de los filtros)
+  const filterButtons = listContainer.querySelector('.flex.gap-2.mb-4');
+  if (!filterButtons) return renderHistory();
+
+  // Actualizar solo los items después de los botones de filtro
+  const itemsHtml = renderHistoryItems(window.historyState);
+
+  // Remover items actuales (todo después de los filtros)
+  let sibling = filterButtons.nextElementSibling;
+  while (sibling) {
+    const next = sibling.nextElementSibling;
+    sibling.remove();
+    sibling = next;
+  }
+
+  // Agregar el nuevo contenido
+  filterButtons.insertAdjacentHTML('afterend', itemsHtml);
+};
 window.renderHistory = () => { document.getElementById('root').innerHTML = History(); };
 
 // VER DETALLE - Modal con opciones (como el original)
