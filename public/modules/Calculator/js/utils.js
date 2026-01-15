@@ -529,12 +529,24 @@ async function getQuotes(limit = 50, offset = 0) {
       .from('sicma_quotes')
       .select(`
         *,
-        products:product_id (name, sku, sale_price, base_price)
+        products:product_id (name, sku, sale_price, base_price, display_order)
       `)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (error) throw error;
+
+    // Sort by products.display_order (from relation), with unlinked quotes at the end
+    if (data) {
+      data.sort((a, b) => {
+        const orderA = a.products?.display_order ?? 9999; // No product = last
+        const orderB = b.products?.display_order ?? 9999;
+        if (orderA !== orderB) return orderA - orderB;
+        // If same display_order, sort by created_at descending
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
+    }
+
     return data;
 
   } catch (error) {

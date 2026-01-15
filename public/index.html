@@ -89,19 +89,37 @@
     </main>
 
     <div id="stage-container" class="fixed inset-0 z-50 bg-[#050505] hidden flex flex-col">
-        <div class="h-20 flex items-center justify-between px-6 shrink-0 bg-[#080808] border-b border-white/10">
-            <button onclick="closeTool()" class="flex items-center gap-3 text-zinc-400 hover:text-white group">
-                <div
-                    class="w-8 h-8 cyber-shape bg-zinc-800 flex items-center justify-center group-hover:bg-cyber transition-colors text-white">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
+        <div class="h-16 flex items-center justify-between px-4 shrink-0 bg-[#080808] border-b border-white/10">
+            <!-- Botón Atrás (contextual) -->
+            <button id="stage-back-btn" onclick="window.stageBack && window.stageBack()"
+                class="w-10 h-10 cyber-shape bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-cyber transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </button>
+
+            <!-- Título Central -->
+            <span id="stage-title" class="font-black text-lg text-white tracking-tighter uppercase italic">APP</span>
+
+            <!-- Botones Derecha: Home Módulo + Cerrar -->
+            <div class="flex items-center gap-2">
+                <button id="stage-module-home" onclick="window.stageModuleHome && window.stageModuleHome()"
+                    title="Menú del módulo"
+                    class="w-10 h-10 cyber-shape bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-neo/20 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6">
                         </path>
                     </svg>
-                </div>
-                <span class="text-xs font-bold tracking-widest uppercase">Volver</span>
-            </button>
-            <span id="stage-title"
-                class="font-black text-xl text-white tracking-tighter uppercase italic pr-4 border-r-4 border-cyber">APP</span>
+                </button>
+                <button onclick="closeTool()" title="Cerrar herramienta"
+                    class="w-10 h-10 cyber-shape bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-red-500 hover:bg-red-500/10 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
         </div>
         <div class="flex-1 relative">
             <div id="stage-loader" class="absolute inset-0 flex items-center justify-center">

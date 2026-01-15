@@ -6,10 +6,59 @@ window.appState = {
   isAuthorized: true
 };
 
+// 2. Sincronizar con Header del Parent
+function syncWithParentHeader() {
+  const parent = window.parent;
+  if (!parent || parent === window) return;
+
+  const screen = window.appState.screen;
+
+  // Configurar Home del Módulo
+  parent.stageModuleHome = () => navigateTo('home');
+
+  // Configurar Atrás según contexto
+  if (screen === 'home') {
+    // En home del módulo, atrás cierra la herramienta
+    parent.stageBack = () => parent.closeTool && parent.closeTool();
+    if (parent.updateStageBackVisible) parent.updateStageBackVisible(true);
+    if (parent.updateStageTitle) parent.updateStageTitle('Calculadora 3D');
+  }
+  else if (screen === 'calculator') {
+    const step = window.calculatorState?.step || 1;
+    if (step > 1) {
+      parent.stageBack = () => window.prevStep && window.prevStep();
+    } else {
+      parent.stageBack = () => navigateTo('home');
+    }
+    if (parent.updateStageTitle) parent.updateStageTitle(`Paso ${step}/6`);
+    if (parent.updateStageBackVisible) parent.updateStageBackVisible(true);
+  }
+  else if (screen === 'packages') {
+    const step = window.packageState?.step || 1;
+    if (step > 1) {
+      parent.stageBack = () => window.backToPackageStep1 && window.backToPackageStep1();
+    } else {
+      parent.stageBack = () => navigateTo('home');
+    }
+    if (parent.updateStageTitle) parent.updateStageTitle('Paquetes');
+    if (parent.updateStageBackVisible) parent.updateStageBackVisible(true);
+  }
+  else if (screen === 'history') {
+    parent.stageBack = () => navigateTo('home');
+    if (parent.updateStageTitle) parent.updateStageTitle('Historial');
+    if (parent.updateStageBackVisible) parent.updateStageBackVisible(true);
+  }
+  else {
+    parent.stageBack = () => navigateTo('home');
+    if (parent.updateStageBackVisible) parent.updateStageBackVisible(true);
+  }
+}
+
 window.navigateTo = (screen) => {
   console.log(`⚡ Módulo navegando a: ${screen}`);
   window.appState.screen = screen;
   renderModule();
+  syncWithParentHeader();
 };
 
 // 3. Renderizador Maestro
@@ -60,4 +109,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   renderModule();
+  syncWithParentHeader();
 });

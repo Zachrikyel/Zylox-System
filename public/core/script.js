@@ -159,7 +159,27 @@ function launchTool(toolId) {
 function closeTool() {
     document.getElementById('stage-container').classList.add('hidden');
     document.getElementById('stage-frame').src = 'about:blank';
+    // Reset header callbacks
+    window.stageBack = null;
+    window.stageModuleHome = null;
 }
+
+// Header communication functions (set by modules via iframe)
+window.stageBack = null;
+window.stageModuleHome = null;
+window.closeTool = closeTool;
+
+// Update stage title from module
+window.updateStageTitle = (title) => {
+    const el = document.getElementById('stage-title');
+    if (el) el.innerText = title;
+};
+
+// Update back button visibility
+window.updateStageBackVisible = (visible) => {
+    const btn = document.getElementById('stage-back-btn');
+    if (btn) btn.style.visibility = visible ? 'visible' : 'hidden';
+};
 
 const SUPABASE_URL = 'https://stjvnjmqezdcxsdodnfc.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0anZuam1xZXpkY3hzZG9kbmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNTE5NTUsImV4cCI6MjA3OTkyNzk1NX0.nh111C74tbdSreSdn7sRQlI8PPNnOCpod-Y1nD3210o';
