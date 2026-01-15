@@ -140,7 +140,7 @@ function Calculator() {
       print: { printHours: 0, materialCost: 0, coolMinutes: 18, isPiece: 'single', plateCount: 1 },
       labor: { complexity: 'simple', primerToggle: false, lacquerToggle: false },
       logistics: { shipping: 'pickup', packagingType: 'box', packagingSize: 'small', packagingCustom: 0, shippingCustom: 0, additionalsToggle: false },
-      pricing: { gateway: 'wompi', profitMargin: 30, additionalCharge: 0 },
+      pricing: { gateway: 'wompi', profitMargin: 25, additionalCharge: 0 },
       results: null
     };
   }
