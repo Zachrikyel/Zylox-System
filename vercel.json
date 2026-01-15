@@ -1,17 +1,26 @@
 {
   "version": 2,
+  "outputDirectory": "public",
   "rewrites": [
     {
+      "source": "/",
+      "destination": "/index.html"
+    },
+    {
       "source": "/app",
-      "destination": "/public/index.html"
+      "destination": "/index.html"
     },
     {
       "source": "/app/(.*)",
-      "destination": "/public/$1"
+      "destination": "/$1"
     },
     {
       "source": "/modules/(.*)",
-      "destination": "/public/modules/$1"
+      "destination": "/modules/$1"
+    },
+    {
+      "source": "/core/(.*)",
+      "destination": "/core/$1"
     },
     {
       "source": "/api/(.*)",

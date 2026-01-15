@@ -1,6 +1,7 @@
 {
   "name": "zylox-system",
   "version": "2.0.0",
+  "type": "module",
   "dependencies": {
     "googleapis": "^144.0.0",
     "nanoid": "^5.0.0"
