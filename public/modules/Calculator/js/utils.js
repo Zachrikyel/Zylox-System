@@ -5,8 +5,23 @@
  * ============================================
  */
 
-// Obtener el cliente de Supabase desde window.supabaseClient
-const getSupabase = () => window.supabaseClient.client;
+// Obtener el cliente de Supabase - PRIORIZA EL PARENT FRAME (Zylox Shell)
+const getSupabase = () => {
+  // 1. Intentar desde el parent frame (herencia del shell principal)
+  if (window.parent && window.parent.supabaseClient) {
+    const parentClient = window.parent.supabaseClient;
+    // El parent puede exponer el cliente directamente o como {client: ...}
+    if (typeof parentClient.from === 'function') return parentClient;
+    if (parentClient.client && typeof parentClient.client.from === 'function') return parentClient.client;
+  }
+  // 2. Fallback al cliente local (config.js)
+  if (window.supabaseClient) {
+    if (typeof window.supabaseClient.from === 'function') return window.supabaseClient;
+    if (window.supabaseClient.client && typeof window.supabaseClient.client.from === 'function') return window.supabaseClient.client;
+  }
+  console.error("🚨 SUPABASE DISCONNECTED - No hay cliente disponible");
+  return null;
+};
 
 // Acceder a las constantes directamente desde window
 const getConstants = () => window.SICMA_CONSTANTS;
