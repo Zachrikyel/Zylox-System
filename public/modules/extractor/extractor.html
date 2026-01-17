@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zylox Extractor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="../../core/styles.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+
+<body class="bg-transparent text-white font-sans overflow-hidden selection:bg-[#39FF14]/30">
+
+    <div id="app" class="h-screen flex flex-col p-6 animate-fade-in bg-zinc-900/10 backdrop-blur-sm">
+
+        <div class="mb-6 flex items-center gap-3 border-b border-zinc-800 pb-4">
+            <i class="ph ph-magnet text-3xl text-[#39FF14]"></i>
+            <div>
+                <h1 class="text-2xl font-black italic text-white tracking-tighter uppercase">Extractor de IDs</h1>
+                <p class="text-[10px] text-zinc-500 font-mono">Conversor de Enlaces Drive -> Proxy Zylox</p>
+            </div>
+        </div>
+
+        <div class="flex-1 flex flex-col md:flex-row gap-6 overflow-hidden">
+
+            <div class="w-full md:w-1/3 flex flex-col gap-4">
+                <div class="bg-zinc-900/80 border border-zinc-800 p-1 cyber-shape flex-1 flex flex-col shadow-lg">
+                    <div class="bg-black/50 p-2 border-b border-zinc-800">
+                        <label
+                            class="text-[10px] text-[#39FF14] uppercase font-bold tracking-widest flex items-center gap-2">
+                            <i class="ph ph-link"></i> Fuente de Datos
+                        </label>
+                    </div>
+                    <textarea id="inputLinks"
+                        class="flex-1 w-full bg-transparent p-4 text-xs font-mono text-zinc-300 outline-none resize-none placeholder-zinc-700"
+                        placeholder="Pega aquí tu lista de enlaces de Google Drive...&#10;(Uno por línea o separados por comas)"></textarea>
+                </div>
+
+                <div class="flex gap-2">
+                    <button onclick="Extractor.clear()"
+                        class="px-4 py-3 border border-zinc-700 text-zinc-500 hover:text-white hover:border-white transition-colors cyber-shape">
+                        <i class="ph ph-trash"></i>
+                    </button>
+                    <button onclick="Extractor.process()"
+                        class="flex-1 py-3 bg-[#39FF14] text-black font-black uppercase tracking-widest hover:bg-white transition-all shadow-[0_0_20px_rgba(57,255,20,0.3)] cyber-shape">
+                        PROCESAR <i class="ph ph-gear-fine ml-2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div
+                class="flex-1 flex flex-col bg-zinc-900/50 border border-zinc-800 cyber-shape relative overflow-hidden">
+                <div class="p-3 bg-black/40 border-b border-zinc-800 flex justify-between items-center">
+                    <span class="text-[10px] text-zinc-400 uppercase font-bold tracking-widest">Resultados
+                        Procesados</span>
+                    <span id="result-count" class="text-[10px] text-[#39FF14] font-mono">0 Items</span>
+                </div>
+
+                <div id="output-container" class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+                    <div class="h-full flex flex-col items-center justify-center text-zinc-700 opacity-50">
+                        <i class="ph ph-code text-6xl mb-2"></i>
+                        <span class="text-xs font-mono uppercase">Esperando Input...</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/logic.js"></script>
+    <script src="js/boot.js"></script>
+</body>
+
+</html>

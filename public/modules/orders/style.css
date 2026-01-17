@@ -80,3 +80,34 @@ input:focus {
     transform: scale(1.1);
     box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
 }
+
+/* 7. ELIMINAR SPINNERS DE INPUT NUMBER (CORREGIDO) */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type=number] {
+    -moz-appearance: textfield;
+    /* Para Firefox antiguo */
+    appearance: textfield;
+    /* Estándar moderno */
+}
+
+/* 8. VARIANTE SELECCIONADA (Feedback Visual Fuerte) */
+.variant-selected {
+    border-color: #39FF14 !important;
+    background-color: rgba(57, 255, 20, 0.1) !important;
+    /* Fondo verde muy sutil */
+    color: white !important;
+    box-shadow: 0 0 10px rgba(57, 255, 20, 0.4);
+    /* Glow */
+    transform: scale(1.05);
+    font-weight: bold;
+}
+
+/* 9. TRANSICIONES SUAVES */
+.variant-btn {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}

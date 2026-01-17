@@ -1,223 +1,226 @@
 const OrdersUI = {
     state: {
         products: [],
-        tempProduct: null,
-        currentView: 'home'
+        selectedProductIds: new Set(),
+        currentView: 'home',
+        currentStep: 0
     },
 
     init: async () => {
         OrdersUI.loadHomeStats();
+        OrdersUI.fetchProducts();
+    },
+
+    fetchProducts: async () => {
+        if (OrdersUI.state.products.length > 0) return;
+
+        // Query con price_adjustment
+        const { data, error } = await window.supabaseClient
+            .from('products')
+            .select(`
+                id, name, sku, base_price, sale_price, stock_quantity, card_middle_url, display_order,
+                product_colors ( id, color_name, hex_code, price_adjustment )
+            `)
+            .eq('is_published', true)
+            .order('display_order', { ascending: true });
+
+        if (!error && data) {
+            OrdersUI.state.products = data;
+        } else if (error) {
+            console.error("Error fetching products:", error);
+            Utils.notify("Error DB al cargar productos.", "error");
+        }
     },
 
     loadHomeStats: async () => {
         const supabase = window.supabaseClient;
         if (!supabase) return;
-
         const { count: total } = await supabase.from('orders').select('*', { count: 'exact', head: true });
         const { count: manual } = await supabase.from('orders').select('*', { count: 'exact', head: true }).eq('order_source', 'manual_pos');
+        document.getElementById('stats-total-orders').innerText = total || 0;
+        document.getElementById('stats-manual-orders').innerText = manual || 0;
+    },
 
-        const elTotal = document.getElementById('stats-total-orders');
-        const elManual = document.getElementById('stats-manual-orders');
-
-        if (elTotal) elTotal.innerText = total || 0;
-        if (elManual) elManual.innerText = manual || 0;
+    startPosWizard: async () => {
+        await OrdersUI.fetchProducts();
+        OrdersUI.state.selectedProductIds.clear();
+        CartManager.cart = [];
+        WizardLogic.goToStep(1);
     },
 
     switchView: (viewName) => {
-        ['view-home', 'view-pos', 'view-history'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.classList.add('hidden');
-                el.classList.remove('flex');
-            }
-        });
+        document.getElementById('view-home').classList.add('hidden');
+        document.getElementById('view-pos').classList.add('hidden');
+        document.getElementById('view-history').classList.add('hidden');
 
-        const target = document.getElementById(`view-${viewName}`);
-        if (target) {
-            target.classList.remove('hidden');
-            target.classList.add('flex');
-        }
-
-        if (viewName === 'pos') {
-            OrdersUI.loadProductsForPOS();
+        if (viewName === 'home') {
+            document.getElementById('view-home').classList.remove('hidden');
+            OrdersUI.updateParentHeader('home');
         } else if (viewName === 'history') {
+            document.getElementById('view-history').classList.remove('hidden');
+            document.getElementById('view-history').classList.add('flex');
             OrdersUI.loadHistory();
+            OrdersUI.updateParentHeader('history');
         }
     },
 
-    // --- CARGA DE PRODUCTOS (POS) ---
-    loadProductsForPOS: async () => {
-        // Evitar recargar si ya hay datos, para velocidad
-        if (OrdersUI.state.products.length > 0) return;
+    updateParentHeader: (context, stepNum) => {
+        if (!window.parent) return;
+        let titleText = "";
+        if (context === 'home') titleText = "";
+        if (context === 'history') titleText = "HISTORIAL";
+        if (context === 'wizard') titleText = `PASO ${stepNum} DE 4`;
 
-        const container = document.getElementById('product-grid');
-        container.innerHTML = '<div class="col-span-full text-center text-zinc-500 animate-pulse mt-10 font-mono text-xs">Sincronizando Catálogo...</div>';
+        try {
+            const header = window.parent.document.querySelector('header');
+            if (header) {
+                let titleEl = header.querySelector('#module-stage-title');
+                if (!titleEl) {
+                    titleEl = document.createElement('div');
+                    titleEl.id = 'module-stage-title';
+                    titleEl.className = "absolute left-1/2 transform -translate-x-1/2 text-white font-mono text-xs uppercase tracking-widest font-bold pointer-events-none";
+                    header.appendChild(titleEl);
+                }
+                titleEl.innerText = titleText;
+            }
+        } catch (e) { }
 
-        const { data, error } = await window.supabaseClient
-            .from('products')
-            .select(`
-                id, name, sku, base_price, sale_price, card_middle_url,
-                product_colors ( id, color_name, hex_code )
-            `)
-            .eq('is_published', true)
-            .order('display_order');
-
-        if (error) {
-            container.innerHTML = `<div class="text-red-500 text-xs">Error: ${error.message}</div>`;
-            return;
+        if (context === 'home') {
+            window.parent.stageBack = null;
+            window.parent.stageModuleHome = null;
+        } else if (context === 'history') {
+            window.parent.stageBack = () => OrdersUI.switchView('home');
+            window.parent.stageModuleHome = () => OrdersUI.switchView('home');
+        } else if (context === 'wizard') {
+            window.parent.stageModuleHome = () => {
+                showConfirmModal("¿Salir de la venta? Se perderán los datos.", () => OrdersUI.switchView('home'));
+            };
+            window.parent.stageBack = () => {
+                if (stepNum > 1) WizardLogic.goToStep(stepNum - 1);
+                else OrdersUI.switchView('home');
+            };
         }
-
-        OrdersUI.state.products = data;
-        OrdersUI.renderProductGrid(data);
     },
 
-    renderProductGrid: (products) => {
-        const container = document.getElementById('product-grid');
-        if (products.length === 0) {
-            container.innerHTML = '<div class="col-span-full text-center text-zinc-600 mt-10 text-xs">No hay productos.</div>';
-            return;
-        }
-
-        container.innerHTML = products.map(p => {
-            const hasVariants = p.product_colors && p.product_colors.length > 0;
+    renderStep1: () => {
+        const container = document.getElementById('step1-grid');
+        const selected = OrdersUI.state.selectedProductIds;
+        container.innerHTML = OrdersUI.state.products.map(p => {
+            const isSelected = selected.has(p.id);
             const price = p.sale_price || p.base_price;
-
-            // Lógica de Imagen: Prioridad card_middle_url
             let imgUrl = null;
-            const rawUrl = p.card_middle_url;
-            if (rawUrl) {
-                const id = Utils.extractDriveId(rawUrl); // Usamos el helper de utils
+            if (p.card_middle_url) {
+                const id = Utils.extractDriveId(p.card_middle_url);
                 if (id) imgUrl = `/api/drive-proxy?id=${id}`;
             }
 
-            // Card HTML
             return `
-            <div onclick="OrdersUI.openAddModal(${p.id})" 
-                 class="group bg-zinc-900 border border-zinc-800 hover:border-[#39FF14] transition-all cursor-pointer relative flex flex-col h-48 overflow-hidden cyber-shape">
-                
-                <div class="absolute top-2 right-2 z-10">
-                    <span class="bg-black/90 text-[#39FF14] text-[10px] font-mono px-1.5 py-0.5 border border-[#39FF14]/30 font-bold">
-                        ${Utils.formatCurrency(price)}
-                    </span>
+            <div onclick="WizardLogic.toggleProductSelection(${p.id})" 
+                 class="group relative h-56 border cursor-pointer transition-all flex flex-col cyber-shape bg-zinc-900 overflow-hidden
+                 ${isSelected ? 'border-[#39FF14] ring-1 ring-[#39FF14]' : 'border-zinc-800 hover:border-zinc-500'}">
+                <div class="absolute top-0 left-0 bg-zinc-800 text-zinc-500 text-[9px] px-2 py-0.5 font-mono z-10 border-b border-r border-zinc-700">#${p.display_order || '0'}</div>
+                ${isSelected ? `<div class="absolute top-2 right-2 text-[#39FF14] z-10 bg-black/80 rounded-full p-1"><i class="ph-fill ph-check-circle text-xl"></i></div>` : ''}
+                <div class="flex-1 flex items-center justify-center p-4 bg-gradient-to-b from-black/20 to-zinc-900/50">
+                    ${imgUrl ? `<img src="${imgUrl}" class="max-h-full object-contain drop-shadow-lg ${isSelected ? 'scale-110' : ''} transition-transform">` : '<i class="ph ph-image text-3xl text-zinc-700"></i>'}
                 </div>
-
-                <div class="flex-1 bg-gradient-to-b from-zinc-800/30 to-black/50 flex items-center justify-center p-2 group-hover:scale-105 transition-transform duration-300">
-                    ${imgUrl
-                    ? `<img src="${imgUrl}" class="max-h-full object-contain drop-shadow-xl" loading="lazy">`
-                    : `<i class="ph ph-image text-4xl text-zinc-700"></i>`
-                }
-                </div>
-
                 <div class="p-3 bg-zinc-950 border-t border-zinc-800 relative">
-                    ${hasVariants
-                    ? `<div class="absolute -top-3 left-3 bg-purple-900/90 text-purple-200 text-[8px] px-1.5 py-0.5 border border-purple-500/50 uppercase tracking-wider">Variantes</div>`
-                    : ''}
-                    <h3 class="text-[10px] font-bold text-white uppercase leading-tight line-clamp-2 h-6">${p.name}</h3>
-                    <span class="text-[9px] text-zinc-500 font-mono block mt-1">${p.sku}</span>
+                     <h3 class="text-[10px] font-bold text-white uppercase leading-tight line-clamp-2 h-6">${p.name}</h3>
+                     <div class="flex justify-between items-end mt-2">
+                        <span class="text-[#39FF14] font-mono font-bold text-xs">${Utils.formatCurrency(price)}</span>
+                        <span class="text-[9px] text-zinc-600 uppercase">Stock: ${p.stock_quantity || 0}</span>
+                     </div>
+                </div>
+            </div>`;
+        }).join('');
+        WizardLogic.updateNextButtonState();
+    },
+
+    // --- STEP 2: CORREGIDO VISUALMENTE ---
+    renderStep2: () => {
+        const container = document.getElementById('step2-list');
+        const selectedIds = Array.from(OrdersUI.state.selectedProductIds);
+        const products = OrdersUI.state.products.filter(p => selectedIds.includes(p.id));
+
+        container.innerHTML = products.map(p => {
+            const hasVariants = p.product_colors && p.product_colors.length > 0;
+            const defaultPrice = p.sale_price || p.base_price;
+
+            let imgUrl = null;
+            if (p.card_middle_url) {
+                const id = Utils.extractDriveId(p.card_middle_url);
+                if (id) imgUrl = `/api/drive-proxy?id=${id}`;
+            }
+
+            let variantHtml = '';
+            if (hasVariants) {
+                variantHtml = `
+                <div class="mt-4">
+                    <label class="text-[9px] text-zinc-500 uppercase block mb-2 font-bold tracking-wider">Variante Requerida:</label>
+                    <div class="flex flex-wrap gap-2">
+                        ${p.product_colors.map(c => {
+                    const adjustment = parseFloat(c.price_adjustment) || 0;
+                    const vPrice = defaultPrice + adjustment;
+                    return `
+                            <button onclick="WizardLogic.selectVariantForProduct(${p.id}, '${c.color_name}', '${c.id}', ${vPrice}, this)" 
+                                    class="variant-btn variant-btn-${p.id} h-9 px-4 border border-zinc-700 bg-zinc-900 hover:border-zinc-500 text-[10px] uppercase text-zinc-400 flex items-center gap-2 rounded-sm"
+                                    data-color-id="${c.id}" data-color-name="${c.color_name}">
+                                <span class="w-3 h-3 rounded-full border border-zinc-600 shadow-sm" style="background:${c.hex_code}"></span>
+                                ${c.color_name}
+                            </button>`;
+                }).join('')}
+                    </div>
+                </div>`;
+            } else {
+                variantHtml = `<div class="mt-4 p-2 bg-zinc-900/50 border border-zinc-800 text-[9px] text-zinc-500 italic text-center">Este producto es único (Sin variantes)</div>`;
+            }
+
+            // AQUI ESTA LA CORRECCION VISUAL DE LA CANTIDAD
+            return `
+            <div class="bg-black/40 border border-zinc-800 p-4 flex gap-5 cyber-shape product-config-card transition-colors duration-300" id="config-card-${p.id}" data-id="${p.id}" data-has-variants="${hasVariants}" data-final-price="${defaultPrice}">
+                
+                <div class="w-24 h-24 bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0 p-2 relative overflow-hidden group">
+                     ${imgUrl ? `<img src="${imgUrl}" class="w-full h-full object-contain drop-shadow-md group-hover:scale-110 transition-transform">` : '<i class="ph ph-image text-2xl text-zinc-700"></i>'}
+                </div>
+                
+                <div class="flex-1 flex flex-col justify-center">
+                    <h3 class="text-sm font-black text-white uppercase italic tracking-wider">${p.name}</h3>
+                    <div id="price-display-${p.id}" class="text-[#39FF14] font-mono text-xs mb-1 font-bold transition-all">
+                        ${Utils.formatCurrency(defaultPrice)}
+                    </div>
+                    
+                    ${variantHtml}
+
+                    <div class="mt-5 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                        <label class="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">Cantidad:</label>
+                        
+                        <div class="flex items-center border border-zinc-700 bg-zinc-900 w-full max-w-[120px] h-9">
+                            <button onclick="WizardLogic.adjustQty(${p.id}, -1)" class="w-8 h-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors text-lg font-bold flex items-center justify-center">-</button>
+                            
+                            <input type="number" id="qty-${p.id}" value="1" class="flex-1 h-full bg-transparent text-center text-white text-sm font-mono outline-none border-x border-zinc-800 appearance-none m-0 p-0" readonly>
+                            
+                            <button onclick="WizardLogic.adjustQty(${p.id}, 1)" class="w-8 h-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors text-lg font-bold flex items-center justify-center">+</button>
+                        </div>
+                    </div>
+
                 </div>
             </div>`;
         }).join('');
     },
 
-    // --- MODAL LOGIC ---
-    openAddModal: (productId) => {
-        const p = OrdersUI.state.products.find(x => x.id === productId);
-        if (!p) return;
+    renderStep3: () => CartManager.renderReviewTable(),
 
-        OrdersUI.state.tempProduct = p;
-        document.getElementById('modal-product-name').innerText = p.name;
-        document.getElementById('modal-qty').value = 1;
-
-        // Render Variantes (Colores)
-        const colorSection = document.getElementById('modal-color-section');
-        const colorGrid = document.getElementById('modal-colors-grid');
-        const variantNameDisplay = document.getElementById('modal-selected-variant-name');
-
-        variantNameDisplay.innerText = "--";
-        document.getElementById('selected-color-id').value = '';
-        document.getElementById('selected-color-name').value = '';
-
-        if (p.product_colors && p.product_colors.length > 0) {
-            colorSection.style.display = 'block';
-            colorGrid.innerHTML = p.product_colors.map(c => `
-                <button onclick="OrdersUI.selectColor(this, '${c.id}', '${c.color_name}')" 
-                        class="color-btn h-12 border border-zinc-600 bg-zinc-800 hover:border-white transition-all flex flex-col items-center justify-center gap-1 group relative overflow-hidden">
-                    <div class="w-full h-1/2 absolute top-0 left-0 opacity-50" style="background-color: ${c.hex_code}"></div>
-                    <span class="relative z-10 mt-4 text-[9px] font-bold text-zinc-300 uppercase group-hover:text-white">${c.color_name}</span>
-                </button>
-            `).join('');
-        } else {
-            // Si no tiene variantes, ocultamos la sección y pre-seleccionamos "Base"
-            colorSection.style.display = 'none';
-            document.getElementById('selected-color-id').value = 'null';
-            document.getElementById('selected-color-name').value = 'Base';
-        }
-
-        const modal = document.getElementById('variant-modal');
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-    },
-
-    closeModal: () => {
-        const modal = document.getElementById('variant-modal');
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        OrdersUI.state.tempProduct = null;
-    },
-
-    selectColor: (btn, id, name) => {
-        // Limpiar selección previa
-        document.querySelectorAll('.color-btn').forEach(b => {
-            b.classList.remove('ring-2', 'ring-[#39FF14]', 'border-[#39FF14]');
-            b.classList.add('border-zinc-600');
-        });
-
-        // Marcar nueva
-        btn.classList.remove('border-zinc-600');
-        btn.classList.add('ring-2', 'ring-[#39FF14]', 'border-[#39FF14]');
-
-        document.getElementById('selected-color-id').value = id;
-        document.getElementById('selected-color-name').value = name;
-        document.getElementById('modal-selected-variant-name').innerText = name;
-    },
-
-    adjustQty: (delta) => {
-        const input = document.getElementById('modal-qty');
-        let val = parseInt(input.value) || 1;
-        val += delta;
-        if (val < 1) val = 1;
-        input.value = val;
-    },
-
-    // Historial (Simple render)
     loadHistory: async () => {
         const container = document.getElementById('history-container');
         container.innerHTML = '<div class="text-center text-zinc-500 text-xs mt-4">Cargando...</div>';
-
         const { data, error } = await window.supabaseClient
-            .from('orders')
-            .select(`id, created_at, total_amount, guest_info, order_items (quantity, product:products(name))`)
-            .order('created_at', { ascending: false })
-            .limit(20);
-
-        if (error) return container.innerHTML = 'Error';
-
-        container.innerHTML = data.map(o => {
-            const summary = o.order_items.map(i => `${i.quantity}x ${i.product?.name}`).join(', ');
-            return `
-            <div class="bg-zinc-900 border border-zinc-800 p-3 flex justify-between items-center hover:border-zinc-600">
-                <div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-[#39FF14] font-mono font-bold text-xs">#${o.id}</span>
-                        <span class="text-[9px] text-zinc-500 uppercase">${new Date(o.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <div class="text-[10px] text-zinc-400 truncate w-48">${summary}</div>
-                </div>
-                <div class="text-right">
-                    <div class="text-white font-mono font-bold text-sm">${Utils.formatCurrency(o.total_amount)}</div>
-                    <div class="text-[8px] text-zinc-500 uppercase">${o.guest_info || '-'}</div>
-                </div>
-            </div>`;
-        }).join('');
+            .from('orders').select(`id, created_at, total_amount, guest_info, order_items(quantity, product:products(name))`)
+            .order('created_at', { ascending: false }).limit(20);
+        if (error) return;
+        container.innerHTML = data.map(o => `
+            <div class="bg-zinc-900 border border-zinc-800 p-3 flex justify-between hover:border-zinc-600">
+                <div><span class="text-[#39FF14] font-mono text-xs">#${o.id}</span> <span class="text-[9px] text-zinc-500">${new Date(o.created_at).toLocaleDateString()}</span></div>
+                <div class="text-white font-mono text-sm">${Utils.formatCurrency(o.total_amount)}</div>
+            </div>
+        `).join('');
     }
 };

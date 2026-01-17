@@ -1,4 +1,4 @@
-// --- ZYLOX NOTIFICATION MODAL (Consistente con Calculator y Products) ---
+// --- ZYLOX NOTIFICATION MODAL ---
 window.showNotification = (message, type = 'warning', duration = 1500) => {
     const existing = document.getElementById('zylox-notification');
     if (existing) existing.remove();
@@ -24,7 +24,6 @@ window.showNotification = (message, type = 'warning', duration = 1500) => {
     `;
     document.body.appendChild(modal);
 
-    // Establecer transición desde el inicio para el fade-out
     modal.style.transition = 'opacity 0.3s ease-out';
 
     setTimeout(() => {
@@ -38,7 +37,7 @@ window.showNotification = (message, type = 'warning', duration = 1500) => {
     };
 };
 
-// --- ZYLOX CONFIRM MODAL (Reemplaza confirm() nativo) ---
+// --- ZYLOX CONFIRM MODAL ---
 window.showConfirmModal = (message, onConfirm, onCancel = null) => {
     const existing = document.getElementById('zylox-confirm-modal');
     if (existing) existing.remove();
@@ -76,7 +75,6 @@ window.showConfirmModal = (message, onConfirm, onCancel = null) => {
         onConfirm();
     };
 
-    // Cerrar con click fuera
     modal.onclick = (e) => {
         if (e.target === modal) {
             closeModal();
@@ -86,29 +84,10 @@ window.showConfirmModal = (message, onConfirm, onCancel = null) => {
 };
 
 const Utils = {
-    // Lista estándar de tallas
-    STANDARD_SIZES: ["XS", "S", "M", "L", "XL", "XXL", "ÚNICA"],
-
-    // --- CORRECCIÓN: Función faltante agregada ---
-    extractDriveId: (input) => {
-        if (!input) return '';
-        const match = input.match(/\/d\/([a-zA-Z0-9_-]+)/) || input.match(/id=([a-zA-Z0-9_-]+)/);
-        if (!match && input.length > 20 && !input.includes('/')) return input;
-        return match ? match[1] : input;
-    },
-    // ---------------------------------------------
-
     formatCurrency: (amount) => {
         return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amount);
     },
-
     notify: (msg, type = 'info') => {
-        // Usar showNotification local (siempre disponible)
         showNotification(msg, type);
-    },
-
-    formatDate: (dateStr) => {
-        const d = new Date(dateStr);
-        return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
     }
 };

@@ -9,6 +9,9 @@ const ZYLOX_CONFIG = {
         holo: '#00F5FF',
         plasma: '#FF6B00',
         void: '#000000',
+        magenta: '#FF00FF',
+        solar: '#FFD700',
+        azure: '#007FFF',
     },
     tools: [
         // Fila 1
@@ -17,12 +20,12 @@ const ZYLOX_CONFIG = {
         { id: 'orders', name: 'Ordenes', icon: 'list', color: 'holo', file: 'orders.html' },
 
         // Fila 2
-        { id: 'coupons', name: 'Cupones', icon: 'ticket', color: 'plasma', file: 'coupons.html' },
-        { id: 'extractor', name: 'Extractor', icon: 'magnet', color: 'white', file: 'extractor.html' },
-        { id: 'materials', name: 'Materiales', icon: 'atom', color: 'white', file: 'materials.html' },
+        { id: 'coupons', name: 'Códigos', icon: 'ticket', color: 'plasma', file: 'coupons.html' },
+        { id: 'extractor', name: 'Extractor', icon: 'magnet', color: 'magenta', file: 'extractor.html' },
+        { id: 'materials', name: 'Materiales', icon: 'atom', color: 'solar', file: 'materials.html' },
 
         // Fila 3
-        { id: 'categories', name: 'Categorías', icon: 'tree', color: 'white', file: 'categories.html' },
+        { id: 'categories', name: 'Categorías', icon: 'tree', color: 'azure', file: 'categories.html' },
         { id: 'locked', name: 'Bloqueado', icon: 'lock', color: 'locked', file: null }
     ]
 };
@@ -66,6 +69,9 @@ function renderDashboard(user) {
         'neo': ZYLOX_CONFIG.colors.neo,
         'holo': ZYLOX_CONFIG.colors.holo,
         'plasma': ZYLOX_CONFIG.colors.plasma,
+        'magenta': ZYLOX_CONFIG.colors.magenta,
+        'solar': ZYLOX_CONFIG.colors.solar,
+        'azure': ZYLOX_CONFIG.colors.azure,
         'white': '#e4e4e7'
     };
 

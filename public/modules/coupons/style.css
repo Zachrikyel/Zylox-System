@@ -1,0 +1,83 @@
+/* ZYLOX COUPONS THEME */
+
+:root {
+    --cyber-primary: #39FF14;
+    --cyber-secondary: #B026FF;
+    --cyber-bg: rgba(10, 10, 10, 0.95);
+    --cyber-border: rgba(255, 255, 255, 0.1);
+}
+
+.bg-zinc-900,
+.bg-zinc-950 {
+    background-color: var(--cyber-bg) !important;
+    border: 1px solid var(--cyber-border) !important;
+    backdrop-filter: blur(10px);
+}
+
+.cyber-shape,
+button.p-8 {
+    clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+}
+
+input,
+select,
+textarea {
+    background-color: rgba(0, 0, 0, 0.6) !important;
+    border: 1px solid #333 !important;
+    color: white !important;
+    border-radius: 0 !important;
+}
+
+input:focus {
+    border-color: var(--cyber-primary) !important;
+    box-shadow: 0 0 15px rgba(57, 255, 20, 0.1);
+}
+
+/* NO SPINNERS */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type=number] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+/* SELECT PERSONALIZADO */
+select {
+    background-color: rgba(10, 10, 10, 0.8) !important;
+    color: white;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1em;
+}
+
+/* ANIMACIONES */
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}

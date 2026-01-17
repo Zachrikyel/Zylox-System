@@ -17,30 +17,33 @@
     <div id="app" class="h-screen flex flex-col relative">
 
         <div id="view-home"
-            class="absolute inset-0 flex flex-col p-6 animate-fade-in z-50 overflow-y-auto justify-center">
-            <div class="max-w-4xl mx-auto w-full space-y-8">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <button onclick="OrdersUI.switchView('pos')"
-                        class="group relative bg-zinc-900/80 border border-zinc-800 p-8 hover:border-[#39FF14] transition-all text-left cyber-shape backdrop-blur-md">
+            class="absolute inset-0 flex flex-col p-6 animate-fade-in z-50 overflow-y-auto justify-center bg-zinc-900/10 backdrop-blur-sm">
+            <div class="max-w-6xl mx-auto w-full space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button onclick="OrdersUI.startPosWizard()"
+                        class="group relative bg-zinc-900/80 border border-zinc-800 p-6 hover:border-[#39FF14] transition-all text-left cyber-shape backdrop-blur-md">
                         <div class="absolute top-4 right-4 text-zinc-700 group-hover:text-[#39FF14] transition-colors">
-                            <i class="ph ph-shopping-cart text-4xl"></i></div>
+                            <i class="ph ph-t-shirt text-4xl"></i></div>
                         <h2
-                            class="text-3xl font-black text-white uppercase italic mb-2 group-hover:text-[#39FF14] tracking-tighter">
-                            Nueva Venta</h2>
-                        <p class="text-xs text-zinc-500 font-mono">Terminal manual. Catálogo completo.</p>
+                            class="text-2xl font-black text-white uppercase italic mb-2 group-hover:text-[#39FF14] tracking-tighter">
+                            Venta Individual</h2>
+                        <p class="text-xs text-zinc-500 font-mono">Paso a paso. Selección detallada.</p>
                     </button>
-
+                    <button onclick="Utils.notify('En desarrollo...', 'warning')"
+                        class="group relative bg-zinc-900/80 border border-zinc-800 p-6 hover:border-yellow-400 transition-all text-left cyber-shape backdrop-blur-md opacity-50">
+                        <div class="absolute top-4 right-4 text-zinc-700 group-hover:text-yellow-400"><i
+                                class="ph ph-package text-4xl"></i></div>
+                        <h2 class="text-2xl font-black text-white uppercase italic mb-2 group-hover:text-yellow-400">
+                            Combos</h2>
+                    </button>
                     <button onclick="OrdersUI.switchView('history')"
-                        class="group relative bg-zinc-900/80 border border-zinc-800 p-8 hover:border-purple-500 transition-all text-left cyber-shape backdrop-blur-md">
-                        <div class="absolute top-4 right-4 text-zinc-700 group-hover:text-purple-500 transition-colors">
-                            <i class="ph ph-clock-counter-clockwise text-4xl"></i></div>
-                        <h2
-                            class="text-3xl font-black text-white uppercase italic mb-2 group-hover:text-purple-500 tracking-tighter">
+                        class="group relative bg-zinc-900/80 border border-zinc-800 p-6 hover:border-purple-500 transition-all text-left cyber-shape backdrop-blur-md">
+                        <div class="absolute top-4 right-4 text-zinc-700 group-hover:text-purple-500"><i
+                                class="ph ph-clock-counter-clockwise text-4xl"></i></div>
+                        <h2 class="text-2xl font-black text-white uppercase italic mb-2 group-hover:text-purple-500">
                             Historial</h2>
-                        <p class="text-xs text-zinc-500 font-mono">Transacciones pasadas y reimpresión.</p>
                     </button>
                 </div>
-
                 <div class="grid grid-cols-2 gap-4">
                     <div class="bg-black/40 border border-zinc-800 p-4 flex items-center justify-between cyber-shape">
                         <div>
@@ -60,123 +63,130 @@
             </div>
         </div>
 
-        <div id="view-pos" class="absolute inset-0 hidden flex-col md:flex-row gap-2 p-2 pt-2">
-            <section
-                class="flex-1 flex flex-col bg-zinc-900/50 border border-zinc-800 cyber-shape overflow-hidden relative">
-                <div class="p-3 border-b border-zinc-800 bg-black/40 flex gap-2">
+        <div id="view-pos" class="absolute inset-0 hidden flex-col p-4 overflow-hidden bg-black/50">
+
+            <div id="step-1" class="h-full flex flex-col gap-4 animate-fade-in hidden">
+                <div class="bg-zinc-900/80 border border-zinc-800 p-3 flex gap-3 cyber-shape">
                     <div class="relative flex-1">
                         <i class="ph ph-magnifying-glass absolute left-3 top-3 text-zinc-500"></i>
-                        <input type="text" id="pos-search" placeholder="BUSCAR..."
-                            class="w-full bg-zinc-950 border border-zinc-700 p-2 pl-9 text-white text-xs font-mono outline-none focus:border-[#39FF14] uppercase placeholder-zinc-600 transition-colors">
+                        <input type="text" id="pos-search" placeholder="BUSCAR PRODUCTO..."
+                            class="w-full bg-black/50 border border-zinc-700 p-2 pl-9 text-white text-xs font-mono outline-none focus:border-[#39FF14] uppercase">
                     </div>
                 </div>
-                <div id="product-grid"
-                    class="flex-1 overflow-y-auto p-3 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 content-start no-scrollbar">
+                <div id="step1-grid"
+                    class="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 content-start pb-20 no-scrollbar">
                 </div>
-            </section>
-
-            <section
-                class="w-full md:w-[380px] bg-zinc-900/90 border-l border-zinc-800 flex flex-col z-20 backdrop-blur-xl shadow-2xl">
-                <div class="p-3 border-b border-zinc-800 bg-black/60 flex justify-between items-center">
-                    <div class="flex items-center gap-2"><i class="ph ph-shopping-cart text-[#39FF14]"></i><span
-                            class="text-xs font-bold uppercase tracking-widest text-white">Orden Actual</span></div>
-                    <button onclick="CartManager.clear()"
-                        class="text-[9px] text-red-400 hover:text-white uppercase tracking-widest hover:underline">Vaciar</button>
+                <div class="absolute bottom-6 right-6 z-20">
+                    <button onclick="WizardLogic.nextStep()" id="btn-next-1"
+                        class="bg-[#39FF14] text-black font-black uppercase tracking-widest px-8 py-4 cyber-shape hover:bg-white transition-all shadow-lg shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Siguiente Paso <i class="ph ph-caret-right ml-2"></i>
+                    </button>
                 </div>
+            </div>
 
-                <div id="cart-items" class="flex-1 overflow-y-auto p-3 space-y-2 no-scrollbar bg-black/20">
-                    <div class="h-full flex flex-col items-center justify-center text-zinc-600 opacity-50"><i
-                            class="ph ph-basket text-4xl mb-2"></i><span
-                            class="text-[10px] font-mono uppercase">Esperando Productos...</span></div>
+            <div id="step-2" class="h-full flex flex-col gap-4 animate-fade-in hidden">
+                <div class="text-center mb-2">
+                    <h3 class="text-[#39FF14] font-mono text-xs uppercase tracking-[0.2em]">Configuración de Items</h3>
                 </div>
+                <div id="step2-list"
+                    class="flex-1 overflow-y-auto space-y-3 pb-20 max-w-4xl mx-auto w-full no-scrollbar"></div>
+                <div class="absolute bottom-6 right-6 z-20">
+                    <button onclick="WizardLogic.nextStep()"
+                        class="bg-[#39FF14] text-black font-black uppercase tracking-widest px-8 py-4 cyber-shape hover:bg-white transition-all shadow-lg shadow-green-500/20">
+                        Siguiente Paso <i class="ph ph-caret-right ml-2"></i>
+                    </button>
+                </div>
+            </div>
 
-                <div class="p-5 border-t border-zinc-800 bg-black/80">
+            <div id="step-3" class="h-full flex flex-col gap-4 animate-fade-in hidden max-w-5xl mx-auto w-full">
+                <div
+                    class="bg-zinc-900/80 border border-zinc-800 flex-1 cyber-shape flex flex-col overflow-hidden relative">
+                    <div class="p-4 bg-black/40 border-b border-zinc-800 flex justify-between items-center">
+                        <span class="font-bold text-white uppercase tracking-widest">Resumen del Pedido</span>
+                        <button onclick="CartManager.clearAll()"
+                            class="text-red-500 text-xs hover:text-white uppercase">Vaciar Todo</button>
+                    </div>
+                    <div id="step3-cart-list" class="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar"></div>
+                    <div class="p-4 bg-black/60 border-t border-zinc-800 text-right">
+                        <span class="text-zinc-500 text-xs uppercase mr-2">Subtotal Parcial:</span>
+                        <span id="step3-subtotal" class="text-2xl font-mono text-[#39FF14] font-bold">$0</span>
+                    </div>
+                </div>
+                <div class="flex justify-end">
+                    <button onclick="WizardLogic.nextStep()"
+                        class="bg-[#39FF14] text-black font-black uppercase tracking-widest px-8 py-4 cyber-shape hover:bg-white transition-all shadow-lg shadow-green-500/20">
+                        Confirmar Carrito <i class="ph ph-check ml-2"></i>
+                    </button>
+                </div>
+            </div>
 
-                    <div class="flex justify-between items-end mb-6">
-                        <span class="text-[10px] text-zinc-500 uppercase">Subtotal Catálogo</span>
-                        <span id="cart-subtotal" class="text-sm font-mono text-zinc-300">$0</span>
+            <div id="step-4"
+                class="h-full flex flex-col animate-fade-in hidden max-w-3xl mx-auto w-full justify-center">
+                <div class="bg-zinc-900/90 border border-zinc-800 p-8 space-y-8 shadow-2xl backdrop-blur-xl relative">
+                    <div class="absolute top-0 left-0 w-4 h-4 border-t border-l border-[#39FF14]"></div>
+                    <div class="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-[#39FF14]"></div>
+
+                    <div class="border-b border-zinc-800 pb-4 mb-4">
+                        <h2 class="text-2xl font-black italic text-white uppercase">Cierre de Venta</h2>
+                        <p class="text-xs text-zinc-500 font-mono">Ajuste final y facturación</p>
                     </div>
 
-                    <div class="relative group mt-2">
-                        <label
-                            class="absolute -top-2 left-2 bg-black px-1 text-[8px] text-[#39FF14] uppercase font-bold border border-[#39FF14]/30">A
-                            Cobrar</label>
-                        <input type="number" id="input-total-manual" oninput="CartManager.recalc()"
-                            class="w-full bg-zinc-900 border border-zinc-700 p-4 text-right text-[#39FF14] font-mono font-bold text-2xl outline-none focus:border-[#39FF14]"
-                            placeholder="$0">
-                    </div>
+                    <div class="grid grid-cols-2 gap-8 mt-6">
+                        <div class="space-y-4">
+                            <div class="relative">
+                                <label
+                                    class="block text-[10px] text-[#39FF14] uppercase font-bold mb-2 tracking-widest">Total
+                                    a Cobrar</label>
+                                <input type="number" id="final-total" oninput="CartManager.recalcFinal()"
+                                    class="w-full bg-zinc-950 border border-zinc-700 p-4 text-right text-[#39FF14] font-mono font-bold text-xl outline-none focus:border-[#39FF14] cyber-shape">
+                            </div>
+                            <div class="flex justify-between text-[10px] font-mono text-zinc-500 px-1">
+                                <span>Sugerido:</span>
+                                <span id="suggested-total" class="text-white">$0</span>
+                            </div>
+                        </div>
 
-                    <div class="flex gap-3 mt-6">
-                        <input type="text" id="input-client-info"
-                            class="flex-1 bg-zinc-900 border border-zinc-800 p-3 text-[10px] text-white outline-none focus:border-white"
-                            placeholder="Cliente / Notas">
-
-                        <div class="w-1/3 relative">
-                            <label
-                                class="absolute -top-2 right-1 bg-black px-1 text-[8px] text-green-500 uppercase font-bold border border-green-500/30">Ganancia</label>
-                            <input type="number" id="input-profit-manual"
-                                class="w-full bg-zinc-900 border border-zinc-800 p-3 text-right text-green-500 font-mono text-xs outline-none"
-                                placeholder="$0">
+                        <div class="space-y-4">
+                            <div class="relative">
+                                <label
+                                    class="block text-[10px] text-green-500 uppercase font-bold mb-2 tracking-widest">Ganancia
+                                    Real</label>
+                                <input type="number" id="final-profit"
+                                    class="w-full bg-zinc-950 border border-zinc-700 p-4 text-right text-green-500 font-mono font-bold text-xl outline-none focus:border-green-500 cyber-shape">
+                            </div>
+                            <div class="flex justify-between text-[10px] font-mono text-zinc-500 px-1">
+                                <span>Diferencia:</span>
+                                <span id="profit-diff" class="text-zinc-400">$0</span>
+                            </div>
                         </div>
                     </div>
 
-                    <button onclick="CartManager.checkout()"
-                        class="w-full py-4 bg-[#39FF14] text-black font-bold uppercase tracking-widest hover:bg-white transition-all shadow-[0_0_15px_rgba(57,255,20,0.3)] mt-4 cyber-shape">
-                        Cobrar
+                    <div class="pt-4">
+                        <label class="block text-[10px] text-white uppercase font-bold mb-2 tracking-widest">Datos del
+                            Cliente</label>
+                        <input type="text" id="final-client"
+                            class="w-full bg-zinc-950 border border-zinc-700 p-4 text-white font-mono text-sm outline-none focus:border-white cyber-shape uppercase placeholder-zinc-700"
+                            placeholder="CONSUMIDOR FINAL">
+                    </div>
+
+                    <button onclick="CartManager.submitOrder()" id="btn-submit-order"
+                        class="w-full py-5 bg-[#39FF14] text-black font-black uppercase text-xl tracking-widest hover:bg-white transition-all shadow-[0_0_30px_rgba(57,255,20,0.4)] cyber-shape mt-4">
+                        COBRAR Y FINALIZAR
                     </button>
                 </div>
-            </section>
+            </div>
+
         </div>
 
         <div id="view-history" class="absolute inset-0 hidden flex-col p-4 pt-4 overflow-hidden">
             <div class="flex justify-between items-center mb-4 border-b border-zinc-800 pb-2">
                 <h2 class="text-xl font-bold text-white uppercase italic">Historial</h2>
-                <button onclick="OrdersUI.loadHistory()" class="text-xs text-[#39FF14] hover:underline"><i
-                        class="ph ph-arrows-clockwise"></i> Refrescar</button>
+                <button onclick="OrdersUI.loadHistory()"
+                    class="text-xs text-[#39FF14] hover:underline">Refrescar</button>
             </div>
             <div id="history-container" class="flex-1 overflow-y-auto space-y-2 pb-20 no-scrollbar"></div>
         </div>
 
-        <div id="variant-modal"
-            class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm hidden items-center justify-center p-4">
-            <div
-                class="bg-zinc-900 border border-zinc-700 w-full max-w-sm shadow-2xl relative animate-fade-in cyber-shape flex flex-col overflow-hidden">
-                <div class="p-4 bg-black/50 border-b border-zinc-800 flex justify-between items-center">
-                    <h3 id="modal-product-name"
-                        class="text-white font-bold uppercase text-sm tracking-widest truncate max-w-[80%]">Producto
-                    </h3>
-                    <button onclick="OrdersUI.closeModal()" class="text-zinc-500 hover:text-white"><i
-                            class="ph ph-x text-lg"></i></button>
-                </div>
-                <div class="p-5 space-y-6">
-                    <div id="modal-color-section">
-                        <div class="flex justify-between items-center mb-2">
-                            <label class="text-[10px] text-zinc-500 uppercase tracking-widest">Selecciona
-                                Variante</label>
-                            <span id="modal-selected-variant-name"
-                                class="text-[10px] text-[#39FF14] font-bold uppercase">--</span>
-                        </div>
-                        <div id="modal-colors-grid" class="grid grid-cols-4 gap-3"></div>
-                        <input type="hidden" id="selected-color-id"><input type="hidden" id="selected-color-name">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] text-zinc-500 uppercase tracking-widest mb-2">Cantidad</label>
-                        <div class="flex items-center border border-zinc-700 bg-black">
-                            <button onclick="OrdersUI.adjustQty(-1)"
-                                class="w-12 h-10 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors text-xl font-bold">-</button>
-                            <input type="number" id="modal-qty" value="1"
-                                class="flex-1 bg-transparent text-center font-mono text-white text-lg outline-none"
-                                readonly>
-                            <button onclick="OrdersUI.adjustQty(1)"
-                                class="w-12 h-10 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors text-xl font-bold">+</button>
-                        </div>
-                    </div>
-                    <button onclick="CartManager.confirmAddToCard()"
-                        class="w-full py-3 bg-[#39FF14] text-black font-bold uppercase tracking-widest hover:bg-white transition-colors cyber-shape shadow-lg shadow-green-500/10">Agregar
-                        a Orden</button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script src="js/utils.js"></script>
