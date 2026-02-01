@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zylox Materials</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* CSS INTERNO PARA ASEGURAR CARGA */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
+        .qty-control {
+            display: flex;
+            align-items: center;
+            background: #000;
+            border: 1px solid #333;
+            clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+        }
+
+        .qty-btn {
+            width: 30px;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .qty-btn:active {
+            background: #39FF14;
+            color: #000;
+        }
+
+        .qty-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            text-align: center;
+            color: white;
+            font-family: monospace;
+            font-size: 1rem;
+            padding: 8px 0;
+            outline: none;
+            width: 50px;
+        }
+
+        .uppercase-input {
+            text-transform: uppercase;
+        }
+
+        /* Evitar selección de texto en tarjetas para mejorar gestos */
+        .no-select {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="root">
+        <div class="flex h-full items-center justify-center">
+            <i class="fas fa-circle-notch fa-spin text-3xl text-[#39FF14]"></i>
+        </div>
+    </div>
+
+    <div id="create-modal" class="modal-overlay hidden">
+        <div class="modal-sheet relative border-t-2 transition-colors duration-300" id="modal-sheet-border">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-white uppercase italic">
+                    Nuevo <span id="modal-type-text" class="text-[#39FF14]">Nivel</span>
+                </h3>
+                <button type="button" onclick="window.closeModal()" class="text-zinc-500 hover:text-white p-2">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+
+            <form onsubmit="event.preventDefault(); window.submitCreation();">
+                <div class="mb-4 text-xs font-mono text-zinc-500 border-b border-zinc-800 pb-2">
+                    UBICACIÓN: <span id="modal-context-path" class="text-white font-bold">RAÍZ</span>
+                </div>
+
+                <label id="dynamic-label"
+                    class="text-xs text-[#39FF14] mb-1 block uppercase tracking-wider">Nombre</label>
+                <input type="text" id="input_name" class="input-cyber uppercase-input" placeholder="IDENTIFICADOR"
+                    required autocomplete="off"
+                    oninput="this.value = this.value.toUpperCase(); window.updateSkuPreview()">
+
+                <div class="flex items-center gap-3 mb-6 bg-zinc-900/50 p-3 border border-zinc-800 rounded">
+                    <i id="dynamic-icon" class="fas fa-barcode text-[#39FF14]"></i>
+                    <div class="flex flex-col">
+                        <span class="text-[10px] text-zinc-500 uppercase">Smart SKU</span>
+                        <span id="modal-sku-preview" class="font-mono text-sm text-white tracking-widest">---</span>
+                    </div>
+                </div>
+
+                <div id="extra-fields" class="hidden animate-fade-in border-t border-zinc-800 pt-4 mt-4">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 block">Stock</label>
+                            <div class="qty-control">
+                                <button type="button" class="qty-btn"
+                                    onclick="window.adjustVal('input_qty', -1)">-</button>
+                                <input type="number" id="input_qty" class="qty-input" value="0" min="0">
+                                <button type="button" class="qty-btn"
+                                    onclick="window.adjustVal('input_qty', 1)">+</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 block">Alerta</label>
+                            <div class="qty-control">
+                                <button type="button" class="qty-btn"
+                                    onclick="window.adjustVal('input_alert', -1)">-</button>
+                                <input type="number" id="input_alert" class="qty-input text-yellow-500" value="5"
+                                    min="0">
+                                <button type="button" class="qty-btn"
+                                    onclick="window.adjustVal('input_alert', 1)">+</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 block">Unidad</label>
+                            <select id="input_unit" class="input-cyber py-2 text-sm h-[42px] mb-0">
+                                <option value="unidad">Unidad (u)</option>
+                                <option value="kg">Kilos (kg)</option>
+                                <option value="g">Gramos (g)</option>
+                                <option value="m">Metros (m)</option>
+                                <option value="l">Litros (L)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 block">Costo
+                                ($)</label>
+                            <div class="qty-control">
+                                <span class="pl-2 text-zinc-500">$</span>
+                                <input type="number" id="input_cost" class="qty-input text-green-400 text-left pl-1"
+                                    value="0.00" step="0.01" min="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" id="dynamic-btn" class="btn-full transition-colors duration-300">CREAR
+                    AHORA</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="edit-modal" class="modal-overlay hidden">
+        <div class="modal-sheet relative border-t-2 transition-colors duration-300" id="edit-sheet-border">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-white uppercase italic">
+                    EDITAR <span id="edit-type-text">NIVEL</span>
+                </h3>
+                <button type="button" onclick="window.closeEditModal()" class="text-zinc-500 hover:text-white p-2">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+
+            <form onsubmit="event.preventDefault(); window.submitEdit();">
+                <input type="hidden" id="edit_id">
+                <input type="hidden" id="edit_old_sku">
+
+                <label id="edit-dynamic-label"
+                    class="text-xs text-[#39FF14] mb-1 block uppercase tracking-wider">Nombre</label>
+                <input type="text" id="edit_name" class="input-cyber uppercase-input" required autocomplete="off"
+                    oninput="this.value = this.value.toUpperCase(); window.updateEditSkuPreview()">
+
+                <div class="flex items-center gap-3 mb-6 bg-zinc-900/50 p-3 border border-zinc-800 rounded">
+                    <i id="edit-dynamic-icon" class="fas fa-barcode text-[#39FF14]"></i>
+                    <div class="flex flex-col w-full">
+                        <span class="text-[10px] text-zinc-500 uppercase">Nuevo SKU (Cascada)</span>
+                        <span id="edit-sku-preview" class="font-mono text-sm text-white tracking-widest">---</span>
+                    </div>
+                </div>
+
+                <div id="edit-extra-fields" class="hidden animate-fade-in border-t border-zinc-800 pt-4 mt-4">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 block">Stock</label>
+                            <div class="qty-control">
+                                <button type="button" class="qty-btn"
+                                    onclick="window.adjustVal('edit_qty', -1)">-</button>
+                                <input type="number" id="edit_qty" class="qty-input" min="0">
+                                <button type="button" class="qty-btn"
+                                    onclick="window.adjustVal('edit_qty', 1)">+</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 block">Alerta</label>
+                            <div class="qty-control">
+                                <button type="button" class="qty-btn"
+                                    onclick="window.adjustVal('edit_alert', -1)">-</button>
+                                <input type="number" id="edit_alert" class="qty-input text-yellow-500" min="0">
+                                <button type="button" class="qty-btn"
+                                    onclick="window.adjustVal('edit_alert', 1)">+</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 block">Unidad</label>
+                            <select id="edit_unit" class="input-cyber py-2 text-sm h-[42px] mb-0">
+                                <option value="unidad">Unidad (u)</option>
+                                <option value="kg">Kilos (kg)</option>
+                                <option value="g">Gramos (g)</option>
+                                <option value="m">Metros (m)</option>
+                                <option value="l">Litros (L)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 block">Costo
+                                ($)</label>
+                            <div class="qty-control">
+                                <span class="pl-2 text-zinc-500">$</span>
+                                <input type="number" id="edit_cost" class="qty-input text-green-400 text-left pl-1"
+                                    step="0.01" min="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <button type="button" onclick="window.deleteItem()"
+                        class="flex-1 py-3 bg-red-900/30 text-red-500 font-bold border border-red-900/50 hover:bg-red-900/50 clip-path-cyber">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button type="submit" id="edit-dynamic-btn"
+                        class="flex-[3] btn-full transition-colors duration-300">
+                        GUARDAR CAMBIOS
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/logic.js"></script>
+    <script src="js/boot.js"></script>
+
+    <script>
+        // SCRIPT DE CIERRE GLOBAL DE EMERGENCIA
+        window.closeModal = () => document.getElementById('create-modal')?.classList.add('hidden');
+        window.closeEditModal = () => document.getElementById('edit-modal')?.classList.add('hidden');
+        document.addEventListener('keydown', e => {
+            if (e.key === "Escape") { window.closeModal(); window.closeEditModal(); }
+        });
+    </script>
+</body>
+
+</html>
