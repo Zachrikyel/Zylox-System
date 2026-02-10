@@ -716,7 +716,7 @@ window.openQuoteImporter = async () => {
                 <h3 class="text-[#39FF14] font-bold uppercase mb-4 text-xs tracking-widest">Seleccionar Cotización</h3>
                 <div class="space-y-2">
                     ${quotes.map(q => `
-                        <button onclick="selectQuoteForImport('${q.id}', '${q.quote_name.replace(/'/g, "")}', ${q.results.finalPrice}, ${q.results.totalProductionTime}, ${q.results.breakdown.energy}, ${q.results.breakdown.wear}, ${q.results.netProfit})" 
+                        <button onclick="selectQuoteForImport('${q.id}', '${q.quote_name.replace(/'/g, "")}', ${q.results.finalPrice}, ${q.results.totalProductionTime}, ${q.results.breakdown.energy}, ${q.results.breakdown.wear}, ${q.results.netProfit}, ${((q.print_data || q.print || {}).materialCost || 0) / ((q.config || {}).materialCostPerKg || 75000) * 1000})" 
                             class="w-full text-left p-3 border border-zinc-800 hover:border-[#39FF14] hover:bg-[#39FF14]/10 transition-colors">
                             <div class="font-bold text-white text-sm">${q.quote_name}</div>
                             <div class="text-[10px] text-zinc-500 font-mono flex justify-between mt-1">
@@ -736,7 +736,7 @@ window.openQuoteImporter = async () => {
     document.body.appendChild(d);
 };
 
-window.selectQuoteForImport = (id, name, basePrice, time, energy, wear, margin) => {
+window.selectQuoteForImport = (id, name, basePrice, time, energy, wear, margin, weightGrams) => {
     const s = window.createState.data;
     window.createState.linkedQuote = { id, quote_name: name };
     if (!s.name) s.name = name;
@@ -745,6 +745,7 @@ window.selectQuoteForImport = (id, name, basePrice, time, energy, wear, margin) 
     s.kwhCost = Math.round(energy);
     s.wearCost = Math.round(wear);
     s.margin = Math.round(margin);
+    s.weight = weightGrams > 0 ? weightGrams.toFixed(2) : '';
     document.getElementById('importer-modal').remove();
     renderModule();
     showNotification("Datos importados de la cotización", "success");

@@ -79,7 +79,7 @@ window.fetchCategories = async () => {
 window.fetchOrphanQuotes = async () => {
     const supabase = getSupabase();
     if (!supabase) return [];
-    const { data } = await supabase.from('sicma_quotes').select('id, quote_name, results, created_at').is('product_id', null).order('created_at', { ascending: false }).limit(20);
+    const { data } = await supabase.from('sicma_quotes').select('id, quote_name, results, config, print_data, created_at').is('product_id', null).order('created_at', { ascending: false }).limit(20);
     return data || [];
 };
 
