@@ -132,6 +132,7 @@ window.createProduct = async (formData, linkedQuoteId = null) => {
         dimensions_cm: formData.packDims,
         material_weight_kg: weightKg,
         slug: slugify(`${formData.name}-${formData.sku}`),
+        is_free_shipping: formData.isFreeShipping || false,
     };
 
     const { data, error } = await supabase.from('products').insert([payload]).select().single();
@@ -276,6 +277,7 @@ window.updateProductMaster = async (id, rawData) => {
         // Control
         is_published: rawData.isPublished,
         is_trending: rawData.isTrending,
+        is_free_shipping: rawData.isFreeShipping || false,
         display_order: parseInt(rawData.displayOrder)
     };
 

@@ -469,6 +469,7 @@ async function saveQuote(quoteData) {
       results: quoteData.results,
       tags: quoteData.tags || [],
       notes: quoteData.notes || null,
+      is_free_shipping: quoteData.logistics?.isFreeShipping || false,
       created_by: userId
     };
 

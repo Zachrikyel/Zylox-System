@@ -197,7 +197,7 @@ function Calculator() {
       config: { kwhPrice: 920, printer: 'p1s', nozzle: 0.4, material: 'pla', materialCostPerKg: 75000, amsMode: false },
       print: { printHours: 0, materialCost: 0, coolMinutes: 18, isPiece: 'single', plateCount: 1 },
       labor: { complexity: 'simple', primerToggle: false, lacquerToggle: false },
-      logistics: { shipping: 'pickup', packagingType: 'box', packagingSize: 'small', packagingCustom: 0, shippingCustom: 0, additionalsToggle: false },
+      logistics: { shipping: 'pickup', packagingType: 'box', packagingSize: 'small', packagingCustom: 0, shippingCustom: 0, additionalsToggle: false, isFreeShipping: false },
       pricing: { gateway: 'wompi', profitMargin: 25, additionalCharge: 0 },
       results: null
     };
@@ -344,6 +344,7 @@ function Calculator() {
           ${state.logistics.packagingSize === 'deluxe' ? `<div><label class="block text-sm text-zinc-400 mb-2">Costo Personalizado</label><input type="text" inputmode="decimal" value="${state.logistics.packagingCustom}" oninput="debouncedUpdate('packagingCustom', 'logistics', parseFloat(this.value) || 0)" onblur="handleInputBlur('packagingCustom', 'logistics', parseFloat(this.value) || 0)" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-lg font-bold text-cyan-400 focus:outline-none focus:border-cyan-500" placeholder="Ingrese costo" /></div>` : ''}
         </div>
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800"><div class="flex items-center justify-between p-3 bg-zinc-800 rounded-lg"><div class="flex items-center gap-2">${Icons.Sparkles(18)}<span class="text-sm">Cargo Adicional (+2%)</span></div><button onclick="updateLogistics('additionalsToggle', ${!state.logistics.additionalsToggle})" class="w-12 h-6 rounded-full transition relative ${state.logistics.additionalsToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.logistics.additionalsToggle ? 'translate-x-6' : ''}"></div></button></div><p class="text-xs text-zinc-500 mt-2">Activa para agregar 2% al costo de embalaje</p></div>
+        <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800"><div class="flex items-center justify-between p-3 bg-zinc-800 rounded-lg"><div class="flex items-center gap-2"><span class="text-lg">🚚</span><div><div class="text-sm font-semibold">Envío Gratis</div><div class="text-xs text-zinc-500">Marcar si este producto lleva envío gratuito</div></div></div><button onclick="updateLogistics('isFreeShipping', ${!state.logistics.isFreeShipping})" class="w-12 h-6 rounded-full transition relative ${state.logistics.isFreeShipping ? 'bg-green-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.logistics.isFreeShipping ? 'translate-x-6' : ''}"></div></button></div>${state.logistics.isFreeShipping ? '<div class="mt-3 p-2 bg-green-500/10 border border-green-500/30 rounded-lg text-xs text-green-400 font-mono">✅ Este producto tendrá envío GRATIS en la tienda</div>' : ''}</div>
       </div>
     `;
   }
@@ -871,6 +872,8 @@ window.viewHistoryItem = (id, type) => {
           
           ${quote.notes ? `<div class="bg-zinc-800/30 border border-zinc-700 p-3"><p class="text-[10px] text-zinc-500 uppercase mb-1">Notas</p><p class="text-xs text-zinc-300">${quote.notes}</p></div>` : ''}
           
+          ${quote.is_free_shipping ? '<div class="bg-green-500/10 border border-green-500/30 p-3 text-center"><span class="text-xs font-bold text-green-400 uppercase tracking-widest">🚚 ENVÍO GRATIS</span></div>' : ''}
+          
           <p class="text-[10px] text-zinc-600 text-center font-mono">Creado: ${formatDateShort(quote.created_at)}</p>
         </div>
         
@@ -937,7 +940,7 @@ window.editQuoteFromHistory = (id) => {
       config: quote.config || {},
       print: quote.print_data || quote.print || {},
       labor: quote.labor || {},
-      logistics: quote.logistics || {},
+      logistics: { ...(quote.logistics || {}), isFreeShipping: quote.is_free_shipping || (quote.logistics || {}).isFreeShipping || false },
       pricing: quote.pricing || {},
       results: quote.results || {},
       // Quote metadata
