@@ -367,8 +367,8 @@ window.syncProductFromQuote = async (productId) => {
     const quote = await window.fetchLinkedQuote(productId);
     if (!quote) return { success: false, reason: 'no_quote' };
 
-    const newBasePrice = quote.results?.finalPrice || 0;
-    const newMargin = quote.results?.netProfit || 0;
+    const newBasePrice = Math.round(quote.results?.finalPrice || 0);
+    const newMargin = Math.round(quote.results?.netProfit || 0);
 
     const supabase = getSupabase();
     if (!supabase) return { success: false, reason: 'no_connection' };
