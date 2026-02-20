@@ -198,7 +198,7 @@ window.fetchArsenalList = async () => {
     // Agregamos más campos para el render de la lista
     const { data, error } = await supabase
         .from('products')
-        .select('id, name, sku, stock_quantity, sale_price, display_order, card_middle_url, is_published, is_trending')
+        .select('id, name, sku, stock_quantity, sale_price, display_order, card_middle_url, is_published, is_trending, is_free_shipping')
         .order('display_order', { ascending: true });
 
     if (error) { console.error("Error Arsenal:", error); return []; }
@@ -346,6 +346,43 @@ window.updateVariantFull = async (variantId, parentProductId, name, hex, images)
     }
 
     return true;
+};
+
+// --- G. Sincronización desde Cotización ---
+window.fetchLinkedQuote = async (productId) => {
+    const supabase = getSupabase();
+    if (!supabase) return null;
+    const { data, error } = await supabase
+        .from('sicma_quotes')
+        .select('id, quote_name, results, config, print_data, is_free_shipping')
+        .eq('product_id', productId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+    if (error) { console.warn('No linked quote found:', error.message); return null; }
+    return data;
+};
+
+window.syncProductFromQuote = async (productId) => {
+    const quote = await window.fetchLinkedQuote(productId);
+    if (!quote) return { success: false, reason: 'no_quote' };
+
+    const newBasePrice = quote.results?.finalPrice || 0;
+    const newMargin = quote.results?.netProfit || 0;
+
+    const supabase = getSupabase();
+    if (!supabase) return { success: false, reason: 'no_connection' };
+
+    const { error } = await supabase
+        .from('products')
+        .update({
+            base_price: newBasePrice,
+            profit_margin: newMargin
+        })
+        .eq('id', productId);
+
+    if (error) return { success: false, reason: error.message };
+    return { success: true, newBasePrice, newMargin, quoteName: quote.quote_name };
 };
 
 // --- EXTRAS ---

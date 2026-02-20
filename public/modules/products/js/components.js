@@ -328,6 +328,16 @@ function ProductInspector() {
                     </div>
                 </div>
 
+                <div class="border border-dashed border-cyan-800 bg-cyan-900/10 p-3 flex items-center justify-between gap-3">
+                    <div>
+                        <span class="text-[10px] font-bold text-cyan-400 uppercase tracking-widest block">Cotización Vinculada</span>
+                        <span class="text-[9px] text-zinc-500 font-mono">Actualizar precio base y margen desde la cotización</span>
+                    </div>
+                    <button onclick="syncQuoteToProduct('${p.id}')" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 flex-shrink-0" style="clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);">
+                        🔄 SYNC
+                    </button>
+                </div>
+
                 <div class="space-y-3">
                     <label class="text-[#39FF14] text-[10px] font-bold uppercase tracking-widest">Control</label>
                     <div class="flex gap-3">
@@ -520,6 +530,29 @@ window.setInspectorTab = (t) => {
         window.inspectorState.tab = t;
         renderModule();
     }
+};
+
+window.syncQuoteToProduct = async (productId) => {
+    showNotification("Sincronizando...", "info", 800);
+    const result = await window.syncProductFromQuote(productId);
+    if (!result.success) {
+        if (result.reason === 'no_quote') {
+            showNotification("Sin cotización vinculada a este producto.", "warning");
+        } else {
+            showNotification("Error: " + result.reason, "error");
+        }
+        return;
+    }
+    // Actualizar el inspector en memoria
+    if (window.inspectorState && window.inspectorState.product) {
+        window.inspectorState.product.base_price = result.newBasePrice;
+        window.inspectorState.product.profit_margin = result.newMargin;
+        // Resetear UI temps para que tomen los nuevos valores
+        window.inspectorState.product._ui_regular = undefined;
+        window.inspectorState.product._ui_discount = undefined;
+    }
+    renderModule();
+    showNotification(`✅ Sync OK — Base: $${Math.round(result.newBasePrice).toLocaleString()} | Margen: $${Math.round(result.newMargin).toLocaleString()}`, "success", 3000);
 };
 
 window.updateInspectorData = (key, val) => {
