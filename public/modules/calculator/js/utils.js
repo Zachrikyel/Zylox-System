@@ -651,7 +651,7 @@ async function savePackage(packageData) {
     };
 
     const { data: pkg, error } = await supabase
-      .from('sicma_packages')
+      .from('bundle_items')
       .insert([packageToInsert])
       .select()
       .single();
@@ -671,7 +671,7 @@ async function getPackages(limit = 50, offset = 0) {
   try {
     const supabase = getSupabase();
     const { data, error } = await supabase
-      .from('sicma_packages')
+      .from('bundle_items')
       .select('*')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -689,7 +689,7 @@ async function deletePackage(packageId) {
   try {
     const supabase = getSupabase();
     const { error } = await supabase
-      .from('sicma_packages')
+      .from('bundle_items')
       .delete()
       .eq('id', packageId);
 
