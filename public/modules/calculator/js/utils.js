@@ -45,6 +45,29 @@ function parseDecimalHours(hours) {
   return { hours: h, minutes: m };
 }
 
+/**
+ * Parsea input de tiempo flexible: acepta horas decimales (36.85)
+ * o formato duración como "1d 12h 51m", "12h 51m", "51m", etc.
+ * Retorna horas decimales.
+ */
+function parseTimeInput(val) {
+  if (typeof val !== 'string') val = String(val);
+  val = val.trim().toLowerCase();
+  if (!val) return 0;
+  // Si contiene letras d/h/m, parsear como duración
+  if (/[dhm]/.test(val)) {
+    const dMatch = val.match(/(\d+(?:\.\d+)?)\s*d/);
+    const hMatch = val.match(/(\d+(?:\.\d+)?)\s*h/);
+    const mMatch = val.match(/(\d+(?:\.\d+)?)\s*m/);
+    const days = dMatch ? parseFloat(dMatch[1]) : 0;
+    const hours = hMatch ? parseFloat(hMatch[1]) : 0;
+    const minutes = mMatch ? parseFloat(mMatch[1]) : 0;
+    return (days * 24) + hours + (minutes / 60);
+  }
+  // Fallback: tratar como horas decimales
+  return parseFloat(val) || 0;
+}
+
 function formatHours(hours) {
   const { hours: h, minutes: m } = parseDecimalHours(hours);
   if (h === 0) return `${m}min`;
@@ -76,6 +99,7 @@ window.Formatters = {
   formatCurrency,
   formatCurrencyWithSymbol,
   parseDecimalHours,
+  parseTimeInput,
   formatHours,
   formatDate,
   formatDateShort

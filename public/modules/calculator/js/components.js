@@ -187,7 +187,7 @@ window.loadDashboardStats = async () => {
 // ============================================
 function Calculator() {
   const Icons = getIcons();
-  const { formatCurrency, parseDecimalHours } = window.Formatters;
+  const { formatCurrency, parseDecimalHours, parseTimeInput } = window.Formatters;
   const { PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, COMPLEXITY_LEVELS, GATEWAYS } = window.SICMA_CONSTANTS;
 
   // ESTADO INICIAL ORIGINAL
@@ -212,7 +212,7 @@ function Calculator() {
   window.updatePricing = (key, value) => { state.pricing[key] = value; renderCalculatorWithScroll(); };
 
   window.updateTimePreview = (val) => {
-    const hours = parseFloat(val) || 0;
+    const hours = parseTimeInput(val);
     debouncedUpdate('printHours', 'print', hours);
     const container = document.getElementById('timePreviewContainer');
     const text = document.getElementById('timePreviewText');
@@ -284,8 +284,8 @@ function Calculator() {
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
           <label class="block text-sm text-zinc-400 mb-4 flex items-center gap-2">${Icons.Clock()} Tiempo (desde Bambu Studio)</label>
           <div class="bg-zinc-800 rounded-xl p-6 text-center mb-4">
-            <input type="text" inputmode="decimal" value="${state.print.printHours || ''}" oninput="window.updateTimePreview(this.value)" onblur="handleInputBlur('printHours', 'print', parseFloat(this.value) || 0)" class="w-full bg-transparent text-center text-5xl font-bold text-white focus:outline-none" placeholder="0.0" />
-            <div class="text-sm text-zinc-500 mt-2">horas (ej: 4.42 = 4h 25min)</div>
+            <input type="text" inputmode="text" value="${state.print.printHours || ''}" oninput="window.updateTimePreview(this.value)" onblur="handleInputBlur('printHours', 'print', window.Formatters.parseTimeInput(this.value))" class="w-full bg-transparent text-center text-5xl font-bold text-white focus:outline-none" placeholder="0.0" />
+            <div class="text-sm text-zinc-500 mt-2">horas decimales o formato: 1d 12h 51m</div>
           </div>
           <div id="timePreviewContainer" class="${state.print.printHours > 0 ? '' : 'hidden'} text-center text-xs text-cyan-400 font-mono bg-cyan-500/10 p-2 rounded-lg mb-4">
              <span id="timePreviewText">≈ ${state.print.printHours > 0 ? `${parseDecimalHours(state.print.printHours).hours}h ${parseDecimalHours(state.print.printHours).minutes}min` : ''}</span>
