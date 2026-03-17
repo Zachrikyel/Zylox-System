@@ -745,6 +745,18 @@ async function saveBundleToCore(payload) {
   }
 }
 
+async function getCategories() {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('categories').select('id, name').order('name');
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('❌ Error obteniendo categorías:', error);
+    return [];
+  }
+}
+
 window.Storage = {
   getProducts,
   saveQuote,
@@ -756,7 +768,8 @@ window.Storage = {
   savePackage,
   getPackages,
   deletePackage,
-  saveBundleToCore
+  saveBundleToCore,
+  getCategories
 };
 
 console.log('✅ Utils loaded (Formatters + Calculations + Storage)');

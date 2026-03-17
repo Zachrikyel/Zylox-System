@@ -148,7 +148,7 @@ function HomeScreen() {
               <div class="p-3 bg-zinc-800 border border-zinc-700 text-purple-400 group-hover:text-white group-hover:bg-purple-500 transition-colors">${Icons.Layers(28)}</div>
               <span class="text-[10px] font-bold text-purple-500 bg-purple-500/10 px-2 py-1 tracking-widest">NUEVO</span>
             </div>
-            <h3 class="text-xl font-bold text-white mb-1 uppercase italic">Paquetes Múltiples</h3>
+            <h3 class="text-xl font-bold text-white mb-1 uppercase italic">Bundless</h3>
             <p class="text-xs text-zinc-400 font-mono">Combina varios productos en un paquete</p>
           </button>
 
@@ -682,11 +682,14 @@ window.savePackageToDatabase = async () => {
     return showNotification("⚠️ Imposible crear Bundle: Hay cotizaciones que no están vinculadas a un Producto del E-commerce.", "error", 5000);
   }
 
-  // Reductor Cuántico: Extrae el NOMBRE del producto para la interfaz humana
+  // 1. Extraemos las categorías de tu base de datos
+  const categories = await window.Storage.getCategories();
+  const categoryOptions = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
   const compositionMap = {};
   selectedQuoteObjects.forEach(q => {
     const pid = q.product_id;
-    const pName = q.products?.name || q.quote_name; // Busca el nombre real
+    const pName = q.products?.name || q.quote_name;
     if (compositionMap[pid]) {
       compositionMap[pid].quantity += 1;
     } else {
@@ -713,6 +716,15 @@ window.savePackageToDatabase = async () => {
           <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">Nombre del Bundle</label>
           <input type="text" id="bundleName" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-white font-bold focus:border-purple-500 outline-none" placeholder="Ej: Pack Kanto Inicial">
         </div>
+        
+        <div>
+          <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">Sección / Categoría</label>
+          <select id="bundleCategory" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-white font-bold focus:border-purple-500 outline-none">
+            <option value="">-- Selecciona donde aparecerá --</option>
+            ${categoryOptions}
+          </select>
+        </div>
+
         <div>
           <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">Leyenda (Tagline)</label>
           <input type="text" id="bundleLegend" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-purple-200 focus:border-purple-500 outline-none" placeholder="Ej: El comienzo de tu leyenda">
@@ -756,14 +768,14 @@ window.savePackageToDatabase = async () => {
 
   window.executeBundleForge = async (base) => {
     const name = document.getElementById('bundleName').value;
+    const categoryId = document.getElementById('bundleCategory').value;
     const salePrice = document.getElementById('bundleSalePrice').value;
     const frontUrl = document.getElementById('bundleFront').value;
 
-    if (!name || !salePrice || !frontUrl) {
-      return showNotification("Nombre, Precio e Imagen Frontal son obligatorios.", "warning");
+    if (!name || !categoryId || !salePrice || !frontUrl) {
+      return showNotification("Nombre, Sección, Precio e Imagen son obligatorios.", "warning");
     }
 
-    // Limpiamos los arrays para la base de datos (quitamos el nombre, dejamos solo el product_id y quantity)
     const clean_composition = items_composition.map(item => ({
       product_id: item.product_id,
       quantity: item.quantity
@@ -776,7 +788,8 @@ window.savePackageToDatabase = async () => {
       p_base_price: base,
       p_sale_price: parseFloat(salePrice),
       p_card_front_url: frontUrl,
-      p_items_composition: clean_composition
+      p_items_composition: clean_composition,
+      p_category_id: parseInt(categoryId) // <--- Pasamos la categoría seleccionada
     };
 
     try {
@@ -787,7 +800,7 @@ window.savePackageToDatabase = async () => {
       await window.Storage.saveBundleToCore(payload);
 
       document.getElementById('bundleForgeModal').remove();
-      showNotification("¡Bundle Inyectado Exitosamente!", "success", 3000);
+      showNotification("¡Bundle Inyectado en su Sección Exitosamente!", "success", 3000);
       delete window.packageState;
       navigateTo('home');
     } catch (e) {
