@@ -672,35 +672,118 @@ window.renderPackage = () => { document.getElementById('root').innerHTML = Packa
 
 window.savePackageToDatabase = async () => {
   const state = window.packageState;
-  // Usar n1Results si existe, sino fallback a results
   const r = state.n1Results || state.results;
-  if (!r) return showNotification("Error en cálculo", "error");
+  if (!r) return showNotification("Error en cálculo matemático", "error");
 
-  const packageName = prompt('Nombre del paquete:', 'Pack ' + new Date().toLocaleDateString());
-  if (!packageName) return;
+  // 1. Extracción y Validación de Productos Reales
+  const selectedQuoteObjects = state.quotes.filter(q => state.selectedQuotes.includes(q.id));
+  const invalidQuotes = selectedQuoteObjects.filter(q => !q.product_id);
 
-  try {
-    const packageData = {
-      packageName,
-      clientName: null,
-      quoteIds: state.selectedQuotes,
-      packageLogistics: state.logistics,
-      individualTotal: r.individualTotal,
-      // Adaptación de datos para la DB
-      totalProductionCosts: r.productionCosts || r.totalProductionCosts,
-      logisticsCosts: r.realLogisticsCost || r.logisticsCosts,
-      baseCost: (r.productionCosts || 0) + (r.realLogisticsCost || 0),
-      finalPrice: state.manualPrice || r.decisionMatrix[0].clientPrice, // Usar recomendada o manual
-      profitMargin: 0, // Ya no es fijo en N-1
-      netProfit: (state.manualPrice || r.decisionMatrix[0].clientPrice) - ((r.productionCosts || 0) + (r.realLogisticsCost || 0)),
-      pricingSuggestions: r.decisionMatrix // Guardar la matriz
+  if (invalidQuotes.length > 0) {
+    return showNotification("⚠️ Imposible crear Bundle: Hay cotizaciones seleccionadas que no están vinculadas a un Producto del E-commerce.", "error", 5000);
+  }
+
+  // 2. Reductor Cuántico: Agrupar cantidades de productos repetidos
+  const compositionMap = {};
+  selectedQuoteObjects.forEach(q => {
+    if (compositionMap[q.product_id]) {
+      compositionMap[q.product_id].quantity += 1;
+    } else {
+      compositionMap[q.product_id] = { product_id: q.product_id, quantity: 1 };
+    }
+  });
+  const items_composition = Object.values(compositionMap);
+
+  // 3. Precios
+  const suggestedPrice = state.manualPrice || r.decisionMatrix[0].clientPrice;
+  const basePrice = r.productionCosts + r.realLogisticsCost;
+
+  // 4. Renderizado del Modal de Forja
+  const modal = document.createElement('div');
+  modal.id = 'bundleForgeModal';
+  modal.className = 'fixed inset-0 bg-black/90 backdrop-blur-md z-[200] flex items-center justify-center p-4 animate-fade-in';
+  modal.innerHTML = `
+    <div class="bg-zinc-900 border border-purple-500 max-w-md w-full shadow-2xl shadow-purple-900/20" style="clip-path: polygon(0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%);">
+      <div class="p-5 border-b border-zinc-800 flex justify-between items-center bg-purple-500/5">
+        <h2 class="text-xl font-black text-purple-400 uppercase italic">📦 Forjar Bundle</h2>
+        <button onclick="document.getElementById('bundleForgeModal').remove()" class="text-zinc-500 hover:text-white transition">✕</button>
+      </div>
+      
+      <div class="p-5 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+        <div>
+          <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">Nombre del Bundle</label>
+          <input type="text" id="bundleName" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-white font-bold focus:border-purple-500 outline-none" placeholder="Ej: Bundle Safari Zone">
+        </div>
+        <div>
+          <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">Leyenda (Tagline)</label>
+          <input type="text" id="bundleLegend" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-purple-200 focus:border-purple-500 outline-none" placeholder="Ej: Lo mejor de toda la galaxia en un solo lugar">
+        </div>
+        <div>
+          <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">Descripción</label>
+          <textarea id="bundleDesc" rows="2" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-sm text-zinc-300 focus:border-purple-500 outline-none" placeholder="Contiene las piezas más raras..."></textarea>
+        </div>
+        <div>
+          <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">URL Imagen Frontal</label>
+          <input type="text" id="bundleImage" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-cyan-400 font-mono text-xs focus:border-cyan-500 outline-none" placeholder="https://rutaimagen.com/bundle.jpg">
+        </div>
+        
+        <div class="grid grid-cols-2 gap-3 mt-4">
+          <div class="bg-zinc-950 p-3 border border-zinc-800">
+             <p class="text-[9px] text-zinc-500 uppercase tracking-widest">Costo Base</p>
+             <p class="text-white font-mono text-lg">$${window.Formatters.formatCurrency(basePrice)}</p>
+          </div>
+          <div class="bg-purple-900/20 p-3 border border-purple-500/50">
+             <p class="text-[9px] text-purple-400 uppercase tracking-widest">Precio Venta</p>
+             <p class="text-white font-black font-mono text-lg">$${window.Formatters.formatCurrency(suggestedPrice)}</p>
+          </div>
+        </div>
+        
+        <div class="bg-zinc-950 border border-zinc-800 p-3 mt-2">
+           <p class="text-[9px] text-zinc-500 uppercase tracking-widest mb-2">Composición Dinámica (${items_composition.length} items únicos)</p>
+           <div class="flex gap-2 flex-wrap">
+              ${items_composition.map(item => `<span class="bg-zinc-800 text-zinc-300 text-xs px-2 py-1 font-mono rounded">ID:${item.product_id} (x${item.quantity})</span>`).join('')}
+           </div>
+        </div>
+      </div>
+      
+      <div class="p-4 flex gap-3 bg-zinc-900">
+        <button onclick="document.getElementById('bundleForgeModal').remove()" class="flex-1 py-4 bg-zinc-950 text-zinc-500 font-bold uppercase text-xs tracking-widest hover:text-white transition border border-zinc-800">Cancelar</button>
+        <button onclick="executeBundleForge(${basePrice}, ${suggestedPrice})" class="flex-1 py-4 bg-gradient-to-r from-purple-700 to-purple-500 text-white font-black uppercase text-xs tracking-widest hover:from-purple-600 hover:to-purple-400 transition shadow-lg shadow-purple-900/50">INICIAR INYECCIÓN</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  // 5. El Disparador
+  window.executeBundleForge = async (base, sale) => {
+    const name = document.getElementById('bundleName').value;
+    if (!name) return showNotification("El nombre del Bundle es un parámetro crítico.", "warning");
+
+    const payload = {
+      p_name: name,
+      p_legend: document.getElementById('bundleLegend').value,
+      p_description: document.getElementById('bundleDesc').value,
+      p_base_price: base,
+      p_sale_price: sale,
+      p_card_front_url: document.getElementById('bundleImage').value,
+      p_items_composition: items_composition
     };
-    await window.Storage.savePackage(packageData);
-    showNotification('Paquete guardado correctamente', 'success');
-    delete window.packageState;
-    navigateTo('home');
-  } catch (error) {
-    showNotification('Error guardando paquete: ' + error.message, 'error');
+
+    try {
+      const btn = event.target;
+      btn.innerText = "FORJANDO...";
+      btn.disabled = true;
+
+      await window.Storage.saveBundleToCore(payload);
+
+      document.getElementById('bundleForgeModal').remove();
+      showNotification("¡Bundle Inyectado al E-Commerce Exitosamente!", "success", 3000);
+      delete window.packageState;
+      navigateTo('home');
+    } catch (e) {
+      document.getElementById('bundleForgeModal').remove();
+      showNotification("Fallo en la matriz de guardado: " + e.message, "error", 5000);
+    }
   }
 };
 

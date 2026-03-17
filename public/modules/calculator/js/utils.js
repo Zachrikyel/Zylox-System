@@ -728,6 +728,23 @@ async function deletePackage(packageId) {
   }
 }
 
+// --- NUEVO MOTOR DE FORJA DE BUNDLES (Añadido por Zachrikyel) ---
+async function saveBundleToCore(payload) {
+  try {
+    const supabase = getSupabase();
+    // Invocamos la función RPC "Transacción Dual" de PostgreSQL
+    const { data, error } = await supabase.rpc('create_bundle_package', payload);
+
+    if (error) throw error;
+
+    console.log('✅ Bundle maestro forjado en la base de datos con ID:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ Error forjando Bundle:', error);
+    throw error;
+  }
+}
+
 window.Storage = {
   getProducts,
   saveQuote,
@@ -738,7 +755,8 @@ window.Storage = {
   deleteQuote,
   savePackage,
   getPackages,
-  deletePackage
+  deletePackage,
+  saveBundleToCore
 };
 
 console.log('✅ Utils loaded (Formatters + Calculations + Storage)');
