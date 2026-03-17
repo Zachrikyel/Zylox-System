@@ -748,7 +748,8 @@ async function saveBundleToCore(payload) {
 async function getCategories() {
   try {
     const supabase = getSupabase();
-    const { data, error } = await supabase.from('categories').select('id, name').order('name');
+    // Ahora extraemos todo el árbol genealógico de las categorías
+    const { data, error } = await supabase.from('categories').select('id, name, parent_id').order('name');
     if (error) throw error;
     return data || [];
   } catch (error) {

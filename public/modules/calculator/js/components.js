@@ -682,9 +682,13 @@ window.savePackageToDatabase = async () => {
     return showNotification("⚠️ Imposible crear Bundle: Hay cotizaciones que no están vinculadas a un Producto del E-commerce.", "error", 5000);
   }
 
-  // 1. Extraemos las categorías de tu base de datos
+  // 1. Extraemos todo el árbol de categorías
   const categories = await window.Storage.getCategories();
-  const categoryOptions = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  window.allCategories = categories; // Guardamos globalmente para el evento onchange
+
+  // Filtramos solo las categorías principales (las que no tienen padre)
+  const parentCategories = categories.filter(c => !c.parent_id);
+  const parentOptions = parentCategories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 
   const compositionMap = {};
   selectedQuoteObjects.forEach(q => {
@@ -714,24 +718,28 @@ window.savePackageToDatabase = async () => {
       <div class="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1">
         <div>
           <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">Nombre del Bundle</label>
-          <input type="text" id="bundleName" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-white font-bold focus:border-purple-500 outline-none" placeholder="Ej: Pack Kanto Inicial">
+          <input type="text" id="bundleName" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-white font-bold focus:border-purple-500 outline-none" placeholder="Ej: Pack Pokeballs">
         </div>
         
-        <div>
-          <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">Sección / Categoría</label>
-          <select id="bundleCategory" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-white font-bold focus:border-purple-500 outline-none">
-            <option value="">-- Selecciona donde aparecerá --</option>
-            ${categoryOptions}
-          </select>
+        <div class="grid grid-cols-2 gap-3 bg-black/30 p-3 border border-zinc-800">
+          <div>
+            <label class="block text-[9px] text-purple-400 font-mono mb-1 uppercase tracking-widest">1. Categoría</label>
+            <select id="bundleCategory" onchange="window.updateSubcategories(this)" class="w-full bg-zinc-900 border border-zinc-800 p-2 text-white text-xs focus:border-purple-500 outline-none">
+              <option value="">-- Elige --</option>
+              ${parentOptions}
+            </select>
+          </div>
+          <div>
+            <label class="block text-[9px] text-cyan-400 font-mono mb-1 uppercase tracking-widest">2. Subcategoría</label>
+            <select id="bundleSubcategory" class="w-full bg-zinc-900 border border-zinc-800 p-2 text-white text-xs focus:border-cyan-500 outline-none disabled:opacity-50" disabled>
+              <option value="">-- N/A --</option>
+            </select>
+          </div>
         </div>
 
         <div>
           <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">Leyenda (Tagline)</label>
           <input type="text" id="bundleLegend" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-purple-200 focus:border-purple-500 outline-none" placeholder="Ej: El comienzo de tu leyenda">
-        </div>
-        <div>
-          <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">Descripción</label>
-          <textarea id="bundleDesc" rows="2" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-sm text-zinc-300 focus:border-purple-500 outline-none" placeholder="Contiene las piezas más raras..."></textarea>
         </div>
         
         <div class="p-3 bg-black/50 border border-zinc-800">
@@ -739,22 +747,15 @@ window.savePackageToDatabase = async () => {
           <input type="text" id="bundleFront" class="w-full bg-zinc-900 border border-zinc-800 p-3 text-white font-mono text-xs focus:border-cyan-500 outline-none" placeholder="https://rutaimagen.com/carta.jpg">
         </div>
         
-        <div class="grid grid-cols-2 gap-3 mt-4">
+        <div class="grid grid-cols-2 gap-3 mt-2">
           <div class="bg-zinc-950 p-3 border border-zinc-800 flex flex-col justify-center">
              <p class="text-[9px] text-zinc-500 uppercase tracking-widest">Costo Base</p>
              <p class="text-white font-mono text-lg">$${window.Formatters.formatCurrency(basePrice)}</p>
           </div>
           <div class="bg-purple-900/20 p-3 border border-purple-500/50">
-             <p class="text-[9px] text-purple-400 uppercase tracking-widest mb-1">Precio Venta (Editable)</p>
+             <p class="text-[9px] text-purple-400 uppercase tracking-widest mb-1">Precio Venta</p>
              <input type="number" id="bundleSalePrice" value="${suggestedPrice}" class="w-full bg-transparent text-white font-black font-mono text-xl outline-none border-b border-purple-500/50 focus:border-purple-400">
           </div>
-        </div>
-        
-        <div class="bg-zinc-950 border border-zinc-800 p-3 mt-2">
-           <p class="text-[9px] text-zinc-500 uppercase tracking-widest mb-2">Composición Dinámica</p>
-           <div class="flex gap-2 flex-wrap">
-              ${items_composition.map(item => `<span class="bg-zinc-800 text-purple-300 border border-purple-500/30 text-xs px-2 py-1 font-mono rounded">${item.name} (x${item.quantity})</span>`).join('')}
-           </div>
         </div>
       </div>
       
@@ -766,15 +767,42 @@ window.savePackageToDatabase = async () => {
   `;
   document.body.appendChild(modal);
 
+  // Lógica para actualizar el segundo dropdown
+  window.updateSubcategories = (selectElement) => {
+    const parentId = selectElement.value;
+    const subSelect = document.getElementById('bundleSubcategory');
+    subSelect.innerHTML = '<option value="">-- N/A --</option>';
+
+    if (!parentId) {
+      subSelect.disabled = true;
+      return;
+    }
+
+    const children = window.allCategories.filter(c => c.parent_id == parentId);
+    if (children.length > 0) {
+      subSelect.disabled = false;
+      children.forEach(c => {
+        subSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+      });
+    } else {
+      subSelect.disabled = true;
+    }
+  };
+
+  // Disparador de inyección
   window.executeBundleForge = async (base) => {
     const name = document.getElementById('bundleName').value;
-    const categoryId = document.getElementById('bundleCategory').value;
+    const parentId = document.getElementById('bundleCategory').value;
+    const subId = document.getElementById('bundleSubcategory').value;
     const salePrice = document.getElementById('bundleSalePrice').value;
     const frontUrl = document.getElementById('bundleFront').value;
 
-    if (!name || !categoryId || !salePrice || !frontUrl) {
-      return showNotification("Nombre, Sección, Precio e Imagen son obligatorios.", "warning");
+    if (!name || !parentId || !salePrice || !frontUrl) {
+      return showNotification("Nombre, Categoría, Precio e Imagen son obligatorios.", "warning");
     }
+
+    // Regla de Oro: Si hay subcategoría elegida, ese es el ID final. Si no, se usa el de la Categoría padre.
+    const finalCategoryId = subId ? parseInt(subId) : parseInt(parentId);
 
     const clean_composition = items_composition.map(item => ({
       product_id: item.product_id,
@@ -784,12 +812,12 @@ window.savePackageToDatabase = async () => {
     const payload = {
       p_name: name,
       p_legend: document.getElementById('bundleLegend').value,
-      p_description: document.getElementById('bundleDesc').value,
+      p_description: "",
       p_base_price: base,
       p_sale_price: parseFloat(salePrice),
       p_card_front_url: frontUrl,
       p_items_composition: clean_composition,
-      p_category_id: parseInt(categoryId) // <--- Pasamos la categoría seleccionada
+      p_category_id: finalCategoryId
     };
 
     try {
