@@ -684,9 +684,8 @@ window.savePackageToDatabase = async () => {
 
   // 1. Extraemos todo el árbol de categorías
   const categories = await window.Storage.getCategories();
-  window.allCategories = categories; // Guardamos globalmente para el evento onchange
+  window.allCategories = categories;
 
-  // Filtramos solo las categorías principales (las que no tienen padre)
   const parentCategories = categories.filter(c => !c.parent_id);
   const parentOptions = parentCategories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 
@@ -741,6 +740,11 @@ window.savePackageToDatabase = async () => {
           <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">Leyenda (Tagline)</label>
           <input type="text" id="bundleLegend" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-purple-200 focus:border-purple-500 outline-none" placeholder="Ej: El comienzo de tu leyenda">
         </div>
+
+        <div>
+          <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">Descripción</label>
+          <textarea id="bundleDesc" rows="2" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-sm text-zinc-300 focus:border-purple-500 outline-none" placeholder="Contiene las piezas más raras..."></textarea>
+        </div>
         
         <div class="p-3 bg-black/50 border border-zinc-800">
           <label class="block text-[9px] text-cyan-500 uppercase tracking-widest font-bold mb-2">Imagen Principal (URL Drive)</label>
@@ -767,7 +771,6 @@ window.savePackageToDatabase = async () => {
   `;
   document.body.appendChild(modal);
 
-  // Lógica para actualizar el segundo dropdown
   window.updateSubcategories = (selectElement) => {
     const parentId = selectElement.value;
     const subSelect = document.getElementById('bundleSubcategory');
@@ -789,7 +792,6 @@ window.savePackageToDatabase = async () => {
     }
   };
 
-  // Disparador de inyección
   window.executeBundleForge = async (base) => {
     const name = document.getElementById('bundleName').value;
     const parentId = document.getElementById('bundleCategory').value;
@@ -801,7 +803,6 @@ window.savePackageToDatabase = async () => {
       return showNotification("Nombre, Categoría, Precio e Imagen son obligatorios.", "warning");
     }
 
-    // Regla de Oro: Si hay subcategoría elegida, ese es el ID final. Si no, se usa el de la Categoría padre.
     const finalCategoryId = subId ? parseInt(subId) : parseInt(parentId);
 
     const clean_composition = items_composition.map(item => ({
@@ -812,7 +813,7 @@ window.savePackageToDatabase = async () => {
     const payload = {
       p_name: name,
       p_legend: document.getElementById('bundleLegend').value,
-      p_description: "",
+      p_description: document.getElementById('bundleDesc').value, // <--- CABLE RESTAURADO
       p_base_price: base,
       p_sale_price: parseFloat(salePrice),
       p_card_front_url: frontUrl,
