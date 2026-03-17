@@ -675,98 +675,108 @@ window.savePackageToDatabase = async () => {
   const r = state.n1Results || state.results;
   if (!r) return showNotification("Error en cálculo matemático", "error");
 
-  // 1. Extracción y Validación de Productos Reales
   const selectedQuoteObjects = state.quotes.filter(q => state.selectedQuotes.includes(q.id));
   const invalidQuotes = selectedQuoteObjects.filter(q => !q.product_id);
 
   if (invalidQuotes.length > 0) {
-    return showNotification("⚠️ Imposible crear Bundle: Hay cotizaciones seleccionadas que no están vinculadas a un Producto del E-commerce.", "error", 5000);
+    return showNotification("⚠️ Imposible crear Bundle: Hay cotizaciones que no están vinculadas a un Producto del E-commerce.", "error", 5000);
   }
 
-  // 2. Reductor Cuántico: Agrupar cantidades de productos repetidos
+  // Reductor Cuántico: Extrae el NOMBRE del producto para la interfaz humana
   const compositionMap = {};
   selectedQuoteObjects.forEach(q => {
-    if (compositionMap[q.product_id]) {
-      compositionMap[q.product_id].quantity += 1;
+    const pid = q.product_id;
+    const pName = q.products?.name || q.quote_name; // Busca el nombre real
+    if (compositionMap[pid]) {
+      compositionMap[pid].quantity += 1;
     } else {
-      compositionMap[q.product_id] = { product_id: q.product_id, quantity: 1 };
+      compositionMap[pid] = { product_id: pid, name: pName, quantity: 1 };
     }
   });
   const items_composition = Object.values(compositionMap);
 
-  // 3. Precios
   const suggestedPrice = state.manualPrice || r.decisionMatrix[0].clientPrice;
   const basePrice = r.productionCosts + r.realLogisticsCost;
 
-  // 4. Renderizado del Modal de Forja
   const modal = document.createElement('div');
   modal.id = 'bundleForgeModal';
   modal.className = 'fixed inset-0 bg-black/90 backdrop-blur-md z-[200] flex items-center justify-center p-4 animate-fade-in';
   modal.innerHTML = `
-    <div class="bg-zinc-900 border border-purple-500 max-w-md w-full shadow-2xl shadow-purple-900/20" style="clip-path: polygon(0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%);">
-      <div class="p-5 border-b border-zinc-800 flex justify-between items-center bg-purple-500/5">
+    <div class="bg-zinc-900 border border-purple-500 max-w-md w-full shadow-2xl shadow-purple-900/20 flex flex-col max-h-[90vh]" style="clip-path: polygon(0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%);">
+      <div class="p-5 border-b border-zinc-800 flex justify-between items-center bg-purple-500/5 shrink-0">
         <h2 class="text-xl font-black text-purple-400 uppercase italic">📦 Forjar Bundle</h2>
         <button onclick="document.getElementById('bundleForgeModal').remove()" class="text-zinc-500 hover:text-white transition">✕</button>
       </div>
       
-      <div class="p-5 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+      <div class="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1">
         <div>
           <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">Nombre del Bundle</label>
-          <input type="text" id="bundleName" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-white font-bold focus:border-purple-500 outline-none" placeholder="Ej: Bundle Safari Zone">
+          <input type="text" id="bundleName" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-white font-bold focus:border-purple-500 outline-none" placeholder="Ej: Pack Kanto Inicial">
         </div>
         <div>
           <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">Leyenda (Tagline)</label>
-          <input type="text" id="bundleLegend" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-purple-200 focus:border-purple-500 outline-none" placeholder="Ej: Lo mejor de toda la galaxia en un solo lugar">
+          <input type="text" id="bundleLegend" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-purple-200 focus:border-purple-500 outline-none" placeholder="Ej: El comienzo de tu leyenda">
         </div>
         <div>
           <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">Descripción</label>
           <textarea id="bundleDesc" rows="2" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-sm text-zinc-300 focus:border-purple-500 outline-none" placeholder="Contiene las piezas más raras..."></textarea>
         </div>
-        <div>
-          <label class="block text-[10px] text-zinc-500 font-mono mb-1 uppercase tracking-widest">URL Imagen Frontal</label>
-          <input type="text" id="bundleImage" class="w-full bg-zinc-950 border border-zinc-800 p-3 text-cyan-400 font-mono text-xs focus:border-cyan-500 outline-none" placeholder="https://rutaimagen.com/bundle.jpg">
+        
+        <div class="p-3 bg-black/50 border border-zinc-800">
+          <label class="block text-[9px] text-cyan-500 uppercase tracking-widest font-bold mb-2">Imagen Principal (URL Drive)</label>
+          <input type="text" id="bundleFront" class="w-full bg-zinc-900 border border-zinc-800 p-3 text-white font-mono text-xs focus:border-cyan-500 outline-none" placeholder="https://rutaimagen.com/carta.jpg">
         </div>
         
         <div class="grid grid-cols-2 gap-3 mt-4">
-          <div class="bg-zinc-950 p-3 border border-zinc-800">
+          <div class="bg-zinc-950 p-3 border border-zinc-800 flex flex-col justify-center">
              <p class="text-[9px] text-zinc-500 uppercase tracking-widest">Costo Base</p>
              <p class="text-white font-mono text-lg">$${window.Formatters.formatCurrency(basePrice)}</p>
           </div>
           <div class="bg-purple-900/20 p-3 border border-purple-500/50">
-             <p class="text-[9px] text-purple-400 uppercase tracking-widest">Precio Venta</p>
-             <p class="text-white font-black font-mono text-lg">$${window.Formatters.formatCurrency(suggestedPrice)}</p>
+             <p class="text-[9px] text-purple-400 uppercase tracking-widest mb-1">Precio Venta (Editable)</p>
+             <input type="number" id="bundleSalePrice" value="${suggestedPrice}" class="w-full bg-transparent text-white font-black font-mono text-xl outline-none border-b border-purple-500/50 focus:border-purple-400">
           </div>
         </div>
         
         <div class="bg-zinc-950 border border-zinc-800 p-3 mt-2">
-           <p class="text-[9px] text-zinc-500 uppercase tracking-widest mb-2">Composición Dinámica (${items_composition.length} items únicos)</p>
+           <p class="text-[9px] text-zinc-500 uppercase tracking-widest mb-2">Composición Dinámica</p>
            <div class="flex gap-2 flex-wrap">
-              ${items_composition.map(item => `<span class="bg-zinc-800 text-zinc-300 text-xs px-2 py-1 font-mono rounded">ID:${item.product_id} (x${item.quantity})</span>`).join('')}
+              ${items_composition.map(item => `<span class="bg-zinc-800 text-purple-300 border border-purple-500/30 text-xs px-2 py-1 font-mono rounded">${item.name} (x${item.quantity})</span>`).join('')}
            </div>
         </div>
       </div>
       
-      <div class="p-4 flex gap-3 bg-zinc-900">
+      <div class="p-4 flex gap-3 bg-zinc-900 shrink-0">
         <button onclick="document.getElementById('bundleForgeModal').remove()" class="flex-1 py-4 bg-zinc-950 text-zinc-500 font-bold uppercase text-xs tracking-widest hover:text-white transition border border-zinc-800">Cancelar</button>
-        <button onclick="executeBundleForge(${basePrice}, ${suggestedPrice})" class="flex-1 py-4 bg-gradient-to-r from-purple-700 to-purple-500 text-white font-black uppercase text-xs tracking-widest hover:from-purple-600 hover:to-purple-400 transition shadow-lg shadow-purple-900/50">INICIAR INYECCIÓN</button>
+        <button onclick="executeBundleForge(${basePrice})" class="flex-1 py-4 bg-gradient-to-r from-purple-700 to-purple-500 text-white font-black uppercase text-xs tracking-widest hover:from-purple-600 hover:to-purple-400 transition shadow-lg shadow-purple-900/50">FORJAR BUNDLE</button>
       </div>
     </div>
   `;
   document.body.appendChild(modal);
 
-  // 5. El Disparador
-  window.executeBundleForge = async (base, sale) => {
+  window.executeBundleForge = async (base) => {
     const name = document.getElementById('bundleName').value;
-    if (!name) return showNotification("El nombre del Bundle es un parámetro crítico.", "warning");
+    const salePrice = document.getElementById('bundleSalePrice').value;
+    const frontUrl = document.getElementById('bundleFront').value;
+
+    if (!name || !salePrice || !frontUrl) {
+      return showNotification("Nombre, Precio e Imagen Frontal son obligatorios.", "warning");
+    }
+
+    // Limpiamos los arrays para la base de datos (quitamos el nombre, dejamos solo el product_id y quantity)
+    const clean_composition = items_composition.map(item => ({
+      product_id: item.product_id,
+      quantity: item.quantity
+    }));
 
     const payload = {
       p_name: name,
       p_legend: document.getElementById('bundleLegend').value,
       p_description: document.getElementById('bundleDesc').value,
       p_base_price: base,
-      p_sale_price: sale,
-      p_card_front_url: document.getElementById('bundleImage').value,
-      p_items_composition: items_composition
+      p_sale_price: parseFloat(salePrice),
+      p_card_front_url: frontUrl,
+      p_items_composition: clean_composition
     };
 
     try {
@@ -777,12 +787,12 @@ window.savePackageToDatabase = async () => {
       await window.Storage.saveBundleToCore(payload);
 
       document.getElementById('bundleForgeModal').remove();
-      showNotification("¡Bundle Inyectado al E-Commerce Exitosamente!", "success", 3000);
+      showNotification("¡Bundle Inyectado Exitosamente!", "success", 3000);
       delete window.packageState;
       navigateTo('home');
     } catch (e) {
       document.getElementById('bundleForgeModal').remove();
-      showNotification("Fallo en la matriz de guardado: " + e.message, "error", 5000);
+      showNotification("Fallo crítico en inyección: " + e.message, "error", 5000);
     }
   }
 };
