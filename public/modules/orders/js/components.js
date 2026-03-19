@@ -216,11 +216,23 @@ const OrdersUI = {
             .from('orders').select(`id, created_at, total_amount, guest_info, order_items(quantity, product:products(name))`)
             .order('created_at', { ascending: false }).limit(20);
         if (error) return;
-        container.innerHTML = data.map(o => `
+        container.innerHTML = data.map(o => {
+            let guestLabel = '';
+            if (o.guest_info) {
+                try {
+                    const gi = typeof o.guest_info === 'string' ? JSON.parse(o.guest_info) : o.guest_info;
+                    guestLabel = gi.name || gi.nombre || gi.email || gi.phone || JSON.stringify(gi);
+                } catch { guestLabel = String(o.guest_info); }
+            }
+            return `
             <div class="bg-zinc-900 border border-zinc-800 p-3 flex justify-between hover:border-zinc-600">
-                <div><span class="text-[#39FF14] font-mono text-xs">#${o.id}</span> <span class="text-[9px] text-zinc-500">${new Date(o.created_at).toLocaleDateString()}</span></div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-[#39FF14] font-mono text-xs">#${o.id}</span>
+                    <span class="text-[9px] text-zinc-500">${new Date(o.created_at).toLocaleDateString()}</span>
+                    ${guestLabel ? `<span class="text-[9px] text-purple-400 font-mono bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded-sm uppercase truncate max-w-[150px]" title="${guestLabel}">${guestLabel}</span>` : ''}
+                </div>
                 <div class="text-white font-mono text-sm">${Utils.formatCurrency(o.total_amount)}</div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
     }
 };
