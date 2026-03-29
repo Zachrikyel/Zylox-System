@@ -34,9 +34,9 @@ const PACKAGING = [
 
 const COMPLEXITY_LEVELS = {
   simple: { name: 'Simple (Solo Impresión)', postProcessMinutes: 5, operatorMinutes: 0, failureRisk: 0.02, suppliesCost: 200, description: 'Solo sacar de impresora y revisar' },
-  easy: { name: 'Fácil', postProcessMinutes: 60, operatorMinutes: 5, failureRisk: 0.10, suppliesCost: 2000, description: 'Limpieza básica y lijado ligero' },
-  medium: { name: 'Media', postProcessMinutes: 120, operatorMinutes: 5, failureRisk: 0.20, suppliesCost: 4000, description: 'Lijado, acabados básicos' },
-  hard: { name: 'Difícil', postProcessMinutes: 180, operatorMinutes: 10, failureRisk: 0.40, suppliesCost: 10000, description: 'Múltiples acabados, ensamblaje' }
+  easy: { name: 'Fácil', postProcessMinutes: 47, operatorMinutes: 5, failureRisk: 0.10, suppliesCost: 1767, description: 'Limpieza básica y lijado ligero' },
+  medium: { name: 'Media', postProcessMinutes: 120, operatorMinutes: 5, failureRisk: 0.20, suppliesCost: 0, description: 'Lijado, acabados básicos' },
+  hard: { name: 'Difícil', postProcessMinutes: 180, operatorMinutes: 10, failureRisk: 0.40, suppliesCost: 7000, description: 'Múltiples acabados, ensamblaje' }
 };
 
 const GATEWAYS = [

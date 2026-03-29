@@ -170,10 +170,26 @@ function closeTool() {
     window.stageModuleHome = null;
 }
 
+// Recargar el módulo actual (reset completo del iframe)
+function reloadCurrentModule() {
+    const iframe = document.getElementById('stage-frame');
+    const loader = document.getElementById('stage-loader');
+    if (iframe && iframe.src && iframe.src !== 'about:blank') {
+        const currentSrc = iframe.src;
+        loader.classList.remove('hidden');
+        iframe.src = 'about:blank';
+        setTimeout(() => {
+            iframe.src = currentSrc;
+            iframe.onload = () => loader.classList.add('hidden');
+        }, 50);
+    }
+}
+
 // Header communication functions (set by modules via iframe)
 window.stageBack = null;
 window.stageModuleHome = null;
 window.closeTool = closeTool;
+window.reloadCurrentModule = reloadCurrentModule;
 
 // Update stage title from module
 window.updateStageTitle = (title) => {

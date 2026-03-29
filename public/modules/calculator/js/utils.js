@@ -569,7 +569,7 @@ async function getQuotes(limit = 50, offset = 0) {
       .from('sicma_quotes')
       .select(`
         *,
-        products:product_id (name, sku, sale_price, base_price, display_order)
+        products:product_id (name, sku, sale_price, base_price, display_order, pack_type)
       `)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -585,6 +585,9 @@ async function getQuotes(limit = 50, offset = 0) {
         // If same display_order, sort by created_at descending
         return new Date(b.created_at) - new Date(a.created_at);
       });
+      // Filtrar cotizaciones vinculadas a productos tipo pack/bundle
+      const filtered = data.filter(q => !q.products?.pack_type || q.products.pack_type !== 'bundle');
+      return filtered;
     }
 
     return data;
