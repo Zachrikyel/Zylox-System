@@ -175,10 +175,12 @@ window.loadDashboardStats = async () => {
   try {
     const quotes = await window.Storage.getQuotes(100, 0) || [];
     const packages = await window.Storage.getPackages(100, 0) || [];
+    // Filtrar paquetes inválidos igual que en el historial
+    const validPackages = packages.filter(p => p.package_name && p.package_name !== 'undefined' && p.final_price && p.final_price > 0);
     const qEl = document.getElementById('stats-quotes');
     const pEl = document.getElementById('stats-packages');
     if (qEl) qEl.innerText = quotes.length;
-    if (pEl) pEl.innerText = packages.length;
+    if (pEl) pEl.innerText = validPackages.length;
   } catch (e) { console.warn("Error cargando stats:", e); }
 };
 
@@ -886,7 +888,15 @@ function renderHistoryItems(state) {
   const Icons = window.Icons;
   let items = [];
   if (state.filter === 'all' || state.filter === 'quotes') { items = items.concat(state.quotes.map(q => ({ ...q, type: 'quote' }))); }
-  if (state.filter === 'all' || state.filter === 'packages') { items = items.concat(state.packages.map(p => ({ ...p, type: 'package' }))); }
+  if (state.filter === 'all' || state.filter === 'packages') {
+    // Filtrar paquetes inválidos (sin nombre, sin precio, o con datos corruptos)
+    const validPackages = state.packages.filter(p => {
+      if (!p.package_name || p.package_name === 'undefined') return false;
+      if (!p.final_price || p.final_price <= 0) return false;
+      return true;
+    });
+    items = items.concat(validPackages.map(p => ({ ...p, type: 'package' })));
+  }
   if (state.searchTerm) { const term = state.searchTerm.toLowerCase(); items = items.filter(item => (item.quote_name || item.package_name || '').toLowerCase().includes(term) || (item.client_name || '').toLowerCase().includes(term)); }
 
   // Sort by products.display_order (nulls last), then by created_at

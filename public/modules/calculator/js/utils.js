@@ -456,9 +456,10 @@ async function getProducts() {
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from('products')
-      .select('id, name, sku, sale_price, base_price')
+      .select('id, name, sku, sale_price, base_price, display_order, pack_type')
       .eq('is_published', true)
-      .order('name');
+      .is('pack_type', null)
+      .order('display_order', { ascending: true, nullsFirst: false });
 
     if (error) throw error;
     return data || [];
@@ -578,15 +579,26 @@ async function getQuotes(limit = 50, offset = 0) {
 
     // Sort by products.display_order (from relation), with unlinked quotes at the end
     if (data) {
-      data.sort((a, b) => {
+      // Filtrar cotizaciones vinculadas a productos tipo pack/bundle (cualquier pack_type)
+      // y eliminar cotizaciones con nombre undefined/null o resultados inválidos
+      const filtered = data.filter(q => {
+        // Excluir si el producto vinculado tiene cualquier pack_type (bundle, pack, etc.)
+        if (q.products?.pack_type) return false;
+        // Excluir cotizaciones sin nombre válido
+        if (!q.quote_name) return false;
+        // Excluir cotizaciones sin resultados o con precio 0/null
+        if (!q.results || !q.results.finalPrice) return false;
+        return true;
+      });
+
+      filtered.sort((a, b) => {
         const orderA = a.products?.display_order ?? 9999; // No product = last
         const orderB = b.products?.display_order ?? 9999;
         if (orderA !== orderB) return orderA - orderB;
         // If same display_order, sort by created_at descending
         return new Date(b.created_at) - new Date(a.created_at);
       });
-      // Filtrar cotizaciones vinculadas a productos tipo pack/bundle
-      const filtered = data.filter(q => !q.products?.pack_type || q.products.pack_type !== 'bundle');
+
       return filtered;
     }
 
