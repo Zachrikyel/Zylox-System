@@ -936,7 +936,7 @@ function renderHistoryItems(state) {
   }).join('');
 }
 
-window.loadHistoryData = async () => { try { const [q, p] = await Promise.all([window.Storage.getQuotes(50, 0), window.Storage.getPackages(50, 0)]); window.historyState.quotes = q; window.historyState.packages = p; window.historyState.loading = false; renderHistory(); } catch (error) { window.historyState.loading = false; renderHistory(); } };
+window.loadHistoryData = async () => { try { const [q, p] = await Promise.all([window.Storage.getQuotes(200, 0), window.Storage.getPackages(200, 0)]); window.historyState.quotes = q; window.historyState.packages = p; window.historyState.loading = false; renderHistory(); } catch (error) { window.historyState.loading = false; renderHistory(); } };
 window.updateHistoryFilter = (filter) => { window.historyState.filter = filter; renderHistory(); };
 window.updateHistorySearch = (term) => {
   window.historyState.searchTerm = term;
