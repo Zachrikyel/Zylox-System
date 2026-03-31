@@ -79,14 +79,29 @@ window.fetchCategories = async () => {
 window.fetchOrphanQuotes = async () => {
     const supabase = getSupabase();
     if (!supabase) return [];
-    const { data } = await supabase.from('sicma_quotes').select('id, quote_name, results, config, print_data, created_at').is('product_id', null).order('created_at', { ascending: false }).limit(20);
-    return data || [];
+    const { data } = await supabase
+        .from('sicma_quotes')
+        .select('id, quote_name, results, config, print_data, created_at')
+        .is('product_id', null)
+        .not('quote_name', 'is', null)
+        .not('results', 'is', null)
+        .order('created_at', { ascending: true });
+    // Filter out quotes with empty/undefined names or zero finalPrice on client side
+    return (data || []).filter(q => 
+        q.quote_name && q.quote_name.trim() !== '' && 
+        q.quote_name !== 'undefined' &&
+        q.results?.finalPrice > 0
+    );
 };
 
 window.fetchProductsSimple = async () => {
     const supabase = getSupabase();
     if (!supabase) return [];
-    const { data, error } = await supabase.from('products').select('id, name, sku').order('display_order', { ascending: true });
+    const { data, error } = await supabase
+        .from('products')
+        .select('id, name, sku')
+        .is('pack_type', null)
+        .order('name', { ascending: true });
     if (error) return [];
     return data;
 };
