@@ -637,15 +637,33 @@ async function getQuoteById(quoteId) {
 async function searchQuotes(searchTerm) {
   try {
     const supabase = getSupabase();
+    const pattern = `%${searchTerm}%`;
     const { data, error } = await supabase
-      .rpc('search_sicma_quotes', { search_term: searchTerm });
+      .from('sicma_quotes')
+      .select(`
+        *,
+        products:product_id (name, sku, sale_price, base_price, display_order, pack_type)
+      `)
+      .or(`quote_name.ilike.${pattern},client_name.ilike.${pattern}`)
+      .order('created_at', { ascending: false })
+      .limit(100);
 
     if (error) throw error;
+
+    // Aplicar mismos filtros que getQuotes
+    if (data) {
+      return data.filter(q => {
+        if (q.products?.pack_type) return false;
+        if (!q.quote_name) return false;
+        if (!q.results || !q.results.finalPrice) return false;
+        return true;
+      });
+    }
     return data;
 
   } catch (error) {
     console.error('❌ Error buscando cotizaciones:', error);
-    throw error;
+    return [];
   }
 }
 

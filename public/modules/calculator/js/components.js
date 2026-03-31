@@ -894,32 +894,34 @@ function renderHistoryItems(state) {
   const Icons = window.Icons;
   let items = [];
 
-  // Si hay búsqueda activa, usar resultados de búsqueda del servidor
-  if (state.searchTerm && state.searchResults) {
-    items = state.searchResults.map(q => ({ ...q, type: 'quote' }));
-  } else {
-    if (state.filter === 'all' || state.filter === 'quotes') { items = items.concat(state.quotes.map(q => ({ ...q, type: 'quote' }))); }
-    if (state.filter === 'all' || state.filter === 'packages') {
-      const validPackages = state.packages.filter(p => {
-        if (!p.package_name || p.package_name === 'undefined') return false;
-        if (!p.final_price || p.final_price <= 0) return false;
-        return true;
-      });
-      items = items.concat(validPackages.map(p => ({ ...p, type: 'package' })));
-    }
+  if (state.filter === 'all' || state.filter === 'quotes') { items = items.concat(state.quotes.map(q => ({ ...q, type: 'quote' }))); }
+  if (state.filter === 'all' || state.filter === 'packages') {
+    const validPackages = state.packages.filter(p => {
+      if (!p.package_name || p.package_name === 'undefined') return false;
+      if (!p.final_price || p.final_price <= 0) return false;
+      return true;
+    });
+    items = items.concat(validPackages.map(p => ({ ...p, type: 'package' })));
+  }
+
+  // Filtro local instantáneo mientras escribes
+  if (state.searchTerm) {
+    const term = state.searchTerm.toLowerCase();
+    items = items.filter(item =>
+      (item.quote_name || item.package_name || '').toLowerCase().includes(term) ||
+      (item.client_name || '').toLowerCase().includes(term) ||
+      (item.products?.name || '').toLowerCase().includes(term)
+    );
   }
 
   // Sort by products.display_order (nulls last), then by created_at
-  if (!state.searchTerm) {
-    items.sort((a, b) => {
-      const orderA = a.products?.display_order ?? 9999;
-      const orderB = b.products?.display_order ?? 9999;
-      if (orderA !== orderB) return orderA - orderB;
-      // Vinculadas: más recientes primero. No vinculadas: más antiguas primero (al final)
-      if (orderA < 9999) return new Date(b.created_at) - new Date(a.created_at);
-      return new Date(a.created_at) - new Date(b.created_at);
-    });
-  }
+  items.sort((a, b) => {
+    const orderA = a.products?.display_order ?? 9999;
+    const orderB = b.products?.display_order ?? 9999;
+    if (orderA !== orderB) return orderA - orderB;
+    if (orderA < 9999) return new Date(b.created_at) - new Date(a.created_at);
+    return new Date(a.created_at) - new Date(b.created_at);
+  });
 
   if (items.length === 0) return `<div class="text-center py-16"><div class="text-5xl mb-4 grayscale opacity-40">📭</div><p class="text-zinc-500 text-sm">${state.searchTerm ? 'Sin resultados para "' + state.searchTerm + '"' : 'No hay registros'}</p></div>`;
 
@@ -1008,25 +1010,30 @@ let historySearchTimer = null;
 window.updateHistorySearch = (term) => {
   window.historyState.searchTerm = term;
 
-  // Debounce la búsqueda del servidor
+  // Filtro local instantáneo
+  updateHistoryListDOM();
+
+  // Cancelar búsqueda anterior del servidor
   if (historySearchTimer) clearTimeout(historySearchTimer);
 
-  if (!term) {
-    // Sin término: volver a datos paginados locales
-    window.historyState.searchResults = null;
-    updateHistoryListDOM();
-    return;
-  }
+  if (!term || term.length < 2) return;
 
+  // Después de 400ms, buscar en TODA la base de datos
   historySearchTimer = setTimeout(async () => {
     try {
-      const results = await window.Storage.searchQuotes(term);
-      window.historyState.searchResults = results || [];
+      const serverResults = await window.Storage.searchQuotes(term);
+      if (window.historyState.searchTerm !== term) return; // usuario ya cambió el texto
+
+      // Merge: agregar quotes del server que no estén ya cargadas
+      const existingIds = new Set(window.historyState.quotes.map(q => q.id));
+      const newQuotes = serverResults.filter(q => !existingIds.has(q.id));
+      if (newQuotes.length > 0) {
+        window.historyState.quotes = window.historyState.quotes.concat(newQuotes);
+        updateHistoryListDOM(); // re-filtrar con los nuevos datos
+      }
     } catch (e) {
-      // Fallback: filtro local sobre los datos cargados
-      window.historyState.searchResults = null;
+      // Silencioso — el filtro local ya está funcionando
     }
-    updateHistoryListDOM();
   }, 400);
 };
 
