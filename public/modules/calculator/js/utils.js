@@ -773,6 +773,42 @@ async function getCategories() {
   }
 }
 
+// --- COUNT FUNCTIONS (HEAD-only, zero rows transferred) ---
+async function countQuotes() {
+  try {
+    const supabase = getSupabase();
+    const { count, error } = await supabase
+      .from('sicma_quotes')
+      .select('id', { count: 'exact', head: true })
+      .not('quote_name', 'is', null)
+      .not('results->finalPrice', 'is', null);
+
+    if (error) throw error;
+    return count || 0;
+  } catch (error) {
+    console.error('❌ Error contando cotizaciones:', error);
+    return 0;
+  }
+}
+
+async function countPackages() {
+  try {
+    const supabase = getSupabase();
+    const { count, error } = await supabase
+      .from('bundle_items')
+      .select('id', { count: 'exact', head: true })
+      .not('package_name', 'is', null)
+      .neq('package_name', 'undefined')
+      .gt('final_price', 0);
+
+    if (error) throw error;
+    return count || 0;
+  } catch (error) {
+    console.error('❌ Error contando paquetes:', error);
+    return 0;
+  }
+}
+
 window.Storage = {
   getProducts,
   saveQuote,
@@ -785,7 +821,9 @@ window.Storage = {
   getPackages,
   deletePackage,
   saveBundleToCore,
-  getCategories
+  getCategories,
+  countQuotes,
+  countPackages
 };
 
 console.log('✅ Utils loaded (Formatters + Calculations + Storage)');

@@ -170,17 +170,17 @@ function HomeScreen() {
   `;
 }
 
-// LOGICA DE STATS (MANTENIDA)
+// LOGICA DE STATS — usa count HEAD-only (cero filas transferidas)
 window.loadDashboardStats = async () => {
   try {
-    const quotes = await window.Storage.getQuotes(100, 0) || [];
-    const packages = await window.Storage.getPackages(100, 0) || [];
-    // Filtrar paquetes inválidos igual que en el historial
-    const validPackages = packages.filter(p => p.package_name && p.package_name !== 'undefined' && p.final_price && p.final_price > 0);
+    const [quotesCount, packagesCount] = await Promise.all([
+      window.Storage.countQuotes(),
+      window.Storage.countPackages()
+    ]);
     const qEl = document.getElementById('stats-quotes');
     const pEl = document.getElementById('stats-packages');
-    if (qEl) qEl.innerText = quotes.length;
-    if (pEl) pEl.innerText = validPackages.length;
+    if (qEl) qEl.innerText = quotesCount;
+    if (pEl) pEl.innerText = packagesCount;
   } catch (e) { console.warn("Error cargando stats:", e); }
 };
 
@@ -215,7 +215,8 @@ function Calculator() {
 
   window.updateTimePreview = (val) => {
     const hours = parseTimeInput(val);
-    debouncedUpdate('printHours', 'print', hours);
+    // Actualizar estado directamente sin re-render (evita cerrar teclado)
+    window.calculatorState.print.printHours = hours;
     const container = document.getElementById('timePreviewContainer');
     const text = document.getElementById('timePreviewText');
     if (hours > 0) {
@@ -847,7 +848,7 @@ window.savePackageToDatabase = async () => {
 function History() {
   const Icons = getIcons();
   const { formatCurrency, formatDateShort } = getFormatters();
-  if (!window.historyState) { window.historyState = { quotes: [], packages: [], loading: true, searchTerm: '', filter: 'all' }; loadHistoryData(); }
+  if (!window.historyState) { window.historyState = { quotes: [], packages: [], loading: true, searchTerm: '', filter: 'all', page: 0, pageSize: 50, hasMore: true, loadingMore: false, searchResults: null }; loadHistoryData(); }
   const state = window.historyState;
 
   // Sync with parent header
@@ -877,6 +878,11 @@ function History() {
           </div>
           
           ${state.loading ? `<div class="text-center py-10 font-mono text-xs text-zinc-500 animate-pulse">CARGANDO...</div>` : renderHistoryItems(state)}
+          ${!state.loading && state.hasMore && !state.searchTerm ? `
+            <button onclick="loadMoreHistory()" class="w-full py-3 mt-4 bg-zinc-800 border border-zinc-700 text-zinc-400 text-xs font-bold uppercase tracking-widest hover:border-cyan-500 hover:text-cyan-400 transition-colors" ${state.loadingMore ? 'disabled' : ''}>
+              ${state.loadingMore ? 'CARGANDO...' : 'CARGAR MÁS'}
+            </button>
+          ` : ''}
         </div>
       </main>
     </div>
@@ -887,27 +893,33 @@ function renderHistoryItems(state) {
   const { formatCurrency, formatDateShort } = window.Formatters;
   const Icons = window.Icons;
   let items = [];
-  if (state.filter === 'all' || state.filter === 'quotes') { items = items.concat(state.quotes.map(q => ({ ...q, type: 'quote' }))); }
-  if (state.filter === 'all' || state.filter === 'packages') {
-    // Filtrar paquetes inválidos (sin nombre, sin precio, o con datos corruptos)
-    const validPackages = state.packages.filter(p => {
-      if (!p.package_name || p.package_name === 'undefined') return false;
-      if (!p.final_price || p.final_price <= 0) return false;
-      return true;
-    });
-    items = items.concat(validPackages.map(p => ({ ...p, type: 'package' })));
+
+  // Si hay búsqueda activa, usar resultados de búsqueda del servidor
+  if (state.searchTerm && state.searchResults) {
+    items = state.searchResults.map(q => ({ ...q, type: 'quote' }));
+  } else {
+    if (state.filter === 'all' || state.filter === 'quotes') { items = items.concat(state.quotes.map(q => ({ ...q, type: 'quote' }))); }
+    if (state.filter === 'all' || state.filter === 'packages') {
+      const validPackages = state.packages.filter(p => {
+        if (!p.package_name || p.package_name === 'undefined') return false;
+        if (!p.final_price || p.final_price <= 0) return false;
+        return true;
+      });
+      items = items.concat(validPackages.map(p => ({ ...p, type: 'package' })));
+    }
   }
-  if (state.searchTerm) { const term = state.searchTerm.toLowerCase(); items = items.filter(item => (item.quote_name || item.package_name || '').toLowerCase().includes(term) || (item.client_name || '').toLowerCase().includes(term)); }
 
   // Sort by products.display_order (nulls last), then by created_at
-  items.sort((a, b) => {
-    const orderA = a.products?.display_order ?? 9999;
-    const orderB = b.products?.display_order ?? 9999;
-    if (orderA !== orderB) return orderA - orderB;
-    return new Date(b.created_at) - new Date(a.created_at);
-  });
+  if (!state.searchTerm) {
+    items.sort((a, b) => {
+      const orderA = a.products?.display_order ?? 9999;
+      const orderB = b.products?.display_order ?? 9999;
+      if (orderA !== orderB) return orderA - orderB;
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+  }
 
-  if (items.length === 0) return `<div class="text-center py-16"><div class="text-5xl mb-4 grayscale opacity-40">📭</div><p class="text-zinc-500 text-sm">No hay registros</p></div>`;
+  if (items.length === 0) return `<div class="text-center py-16"><div class="text-5xl mb-4 grayscale opacity-40">📭</div><p class="text-zinc-500 text-sm">${state.searchTerm ? 'Sin resultados para "' + state.searchTerm + '"' : 'No hay registros'}</p></div>`;
 
   return items.map(item => {
     const isQuote = item.type === 'quote';
@@ -936,32 +948,93 @@ function renderHistoryItems(state) {
   }).join('');
 }
 
-window.loadHistoryData = async () => { try { const [q, p] = await Promise.all([window.Storage.getQuotes(200, 0), window.Storage.getPackages(200, 0)]); window.historyState.quotes = q; window.historyState.packages = p; window.historyState.loading = false; renderHistory(); } catch (error) { window.historyState.loading = false; renderHistory(); } };
+window.loadHistoryData = async () => {
+  try {
+    const pageSize = window.historyState.pageSize || 50;
+    const [q, p] = await Promise.all([
+      window.Storage.getQuotes(pageSize, 0),
+      window.Storage.getPackages(pageSize, 0)
+    ]);
+    window.historyState.quotes = q;
+    window.historyState.packages = p;
+    window.historyState.page = 0;
+    window.historyState.hasMore = q.length >= pageSize;
+    window.historyState.loading = false;
+    renderHistory();
+  } catch (error) {
+    window.historyState.loading = false;
+    renderHistory();
+  }
+};
+
+window.loadMoreHistory = async () => {
+  const state = window.historyState;
+  if (state.loadingMore || !state.hasMore) return;
+  state.loadingMore = true;
+  renderHistory();
+  try {
+    const pageSize = state.pageSize || 50;
+    const nextPage = (state.page || 0) + 1;
+    const offset = nextPage * pageSize;
+    const [q, p] = await Promise.all([
+      window.Storage.getQuotes(pageSize, offset),
+      window.Storage.getPackages(pageSize, offset)
+    ]);
+    state.quotes = state.quotes.concat(q);
+    state.packages = state.packages.concat(p);
+    state.page = nextPage;
+    state.hasMore = q.length >= pageSize || p.length >= pageSize;
+    state.loadingMore = false;
+    renderHistory();
+  } catch (error) {
+    state.loadingMore = false;
+    renderHistory();
+  }
+};
+
 window.updateHistoryFilter = (filter) => { window.historyState.filter = filter; renderHistory(); };
+
+let historySearchTimer = null;
 window.updateHistorySearch = (term) => {
   window.historyState.searchTerm = term;
-  // Solo actualizar la lista sin re-renderizar todo (preserva foco del input)
+
+  // Debounce la búsqueda del servidor
+  if (historySearchTimer) clearTimeout(historySearchTimer);
+
+  if (!term) {
+    // Sin término: volver a datos paginados locales
+    window.historyState.searchResults = null;
+    updateHistoryListDOM();
+    return;
+  }
+
+  historySearchTimer = setTimeout(async () => {
+    try {
+      const results = await window.Storage.searchQuotes(term);
+      window.historyState.searchResults = results || [];
+    } catch (e) {
+      // Fallback: filtro local sobre los datos cargados
+      window.historyState.searchResults = null;
+    }
+    updateHistoryListDOM();
+  }, 400);
+};
+
+function updateHistoryListDOM() {
   const listContainer = document.querySelector('main .max-w-md.space-y-3');
   if (!listContainer) return renderHistory();
-
-  // Encontrar el contenedor de items (después de los filtros)
   const filterButtons = listContainer.querySelector('.flex.gap-2.mb-4');
   if (!filterButtons) return renderHistory();
 
-  // Actualizar solo los items después de los botones de filtro
   const itemsHtml = renderHistoryItems(window.historyState);
-
-  // Remover items actuales (todo después de los filtros)
   let sibling = filterButtons.nextElementSibling;
   while (sibling) {
     const next = sibling.nextElementSibling;
     sibling.remove();
     sibling = next;
   }
-
-  // Agregar el nuevo contenido
   filterButtons.insertAdjacentHTML('afterend', itemsHtml);
-};
+}
 window.renderHistory = () => { document.getElementById('root').innerHTML = History(); };
 
 // VER DETALLE - Modal con opciones (como el original)
