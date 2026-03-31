@@ -563,39 +563,41 @@ async function generateVariantsForQuote(quote) {
   }
 }
 
-async function getQuotes(limit = 50, offset = 0) {
+async function getQuotes(limit = 50, offset = 0, filter = null) {
   try {
     const supabase = getSupabase();
-    const { data, error } = await supabase
+    let query = supabase
       .from('sicma_quotes')
       .select(`
         *,
         products:product_id (name, sku, sale_price, base_price, display_order, pack_type)
       `)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .order('created_at', { ascending: false });
 
+    // Filtro: solo vinculadas o solo no vinculadas
+    if (filter === 'linked') {
+      query = query.not('product_id', 'is', null);
+    } else if (filter === 'unlinked') {
+      query = query.is('product_id', null);
+    }
+
+    query = query.range(offset, offset + limit - 1);
+
+    const { data, error } = await query;
     if (error) throw error;
 
-    // Sort by products.display_order (from relation), with unlinked quotes at the end
     if (data) {
-      // Filtrar cotizaciones vinculadas a productos tipo pack/bundle (cualquier pack_type)
-      // y eliminar cotizaciones con nombre undefined/null o resultados inválidos
       const filtered = data.filter(q => {
-        // Excluir si el producto vinculado tiene cualquier pack_type (bundle, pack, etc.)
         if (q.products?.pack_type) return false;
-        // Excluir cotizaciones sin nombre válido
         if (!q.quote_name) return false;
-        // Excluir cotizaciones sin resultados o con precio 0/null
         if (!q.results || !q.results.finalPrice) return false;
         return true;
       });
 
       filtered.sort((a, b) => {
-        const orderA = a.products?.display_order ?? 9999; // No product = last
+        const orderA = a.products?.display_order ?? 9999;
         const orderB = b.products?.display_order ?? 9999;
         if (orderA !== orderB) return orderA - orderB;
-        // If same display_order, sort by created_at descending
         return new Date(b.created_at) - new Date(a.created_at);
       });
 

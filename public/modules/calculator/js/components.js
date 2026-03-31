@@ -302,7 +302,7 @@ function Calculator() {
         </div>
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
           <label class="block text-sm text-zinc-400 mb-4 flex items-center gap-2">${Icons.Package()} Cantidad Material</label>
-          <div class="bg-zinc-800 rounded-xl p-4 mb-3"><div class="text-xs text-zinc-500 mb-2">Valor desde Bambu Studio (COP)</div><input type="text" inputmode="decimal" value="${state.print.materialCost || ''}" oninput="debouncedUpdate('materialCost', 'print', parseFloat(this.value) || 0)" onblur="handleInputBlur('materialCost', 'print', parseFloat(this.value) || 0)" class="w-full bg-transparent text-right text-3xl font-bold text-cyan-400 focus:outline-none" placeholder="0" /></div>
+          <div class="bg-zinc-800 rounded-xl p-4 mb-3"><div class="text-xs text-zinc-500 mb-2">Valor desde Bambu Studio (COP)</div><input type="text" inputmode="decimal" value="${state.print.materialCost || ''}" oninput="window.calculatorState.print.materialCost = parseFloat(this.value) || 0" onblur="handleInputBlur('materialCost', 'print', parseFloat(this.value) || 0)" class="w-full bg-transparent text-right text-3xl font-bold text-cyan-400 focus:outline-none" placeholder="0" /></div>
           <div class="bg-zinc-800/50 rounded-lg p-3 text-xs text-zinc-500">💡 Usa la cantidad total que muestra Bambu Studio</div>
         </div>
       </div>
@@ -915,7 +915,9 @@ function renderHistoryItems(state) {
       const orderA = a.products?.display_order ?? 9999;
       const orderB = b.products?.display_order ?? 9999;
       if (orderA !== orderB) return orderA - orderB;
-      return new Date(b.created_at) - new Date(a.created_at);
+      // Vinculadas: más recientes primero. No vinculadas: más antiguas primero (al final)
+      if (orderA < 9999) return new Date(b.created_at) - new Date(a.created_at);
+      return new Date(a.created_at) - new Date(b.created_at);
     });
   }
 
@@ -951,14 +953,17 @@ function renderHistoryItems(state) {
 window.loadHistoryData = async () => {
   try {
     const pageSize = window.historyState.pageSize || 50;
-    const [q, p] = await Promise.all([
-      window.Storage.getQuotes(pageSize, 0),
+    // Cargar TODAS las vinculadas (con product_id) + primera página de no vinculadas
+    const [linked, unlinked, p] = await Promise.all([
+      window.Storage.getQuotes(500, 0, 'linked'),
+      window.Storage.getQuotes(pageSize, 0, 'unlinked'),
       window.Storage.getPackages(pageSize, 0)
     ]);
-    window.historyState.quotes = q;
+    window.historyState.linkedQuotes = linked;
+    window.historyState.quotes = linked.concat(unlinked);
     window.historyState.packages = p;
     window.historyState.page = 0;
-    window.historyState.hasMore = q.length >= pageSize;
+    window.historyState.hasMore = unlinked.length >= pageSize;
     window.historyState.loading = false;
     renderHistory();
   } catch (error) {
@@ -976,11 +981,16 @@ window.loadMoreHistory = async () => {
     const pageSize = state.pageSize || 50;
     const nextPage = (state.page || 0) + 1;
     const offset = nextPage * pageSize;
+    // Solo paginar las no vinculadas (las vinculadas ya están todas cargadas)
     const [q, p] = await Promise.all([
-      window.Storage.getQuotes(pageSize, offset),
+      window.Storage.getQuotes(pageSize, offset, 'unlinked'),
       window.Storage.getPackages(pageSize, offset)
     ]);
-    state.quotes = state.quotes.concat(q);
+    // Agregar solo las no vinculadas nuevas (las linked ya están)
+    state.quotes = (state.linkedQuotes || []).concat(
+      state.quotes.filter(x => !x.product_id),
+      q
+    );
     state.packages = state.packages.concat(p);
     state.page = nextPage;
     state.hasMore = q.length >= pageSize || p.length >= pageSize;
