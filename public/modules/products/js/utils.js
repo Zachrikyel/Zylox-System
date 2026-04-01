@@ -179,6 +179,7 @@ window.createVariant = async (variantData) => {
             product_id: productId,
             color_name: colorName,
             hex_code: hexCode,
+            price_adjustment: window.parseLocalFloat(variantData.priceAdjustment) || 0,
             display_order: 0
         }])
         .select()
@@ -231,7 +232,7 @@ window.fetchProductDetails = async (id) => {
         .select(`
             *,
             product_colors (
-                id, color_name, hex_code, display_order
+                id, color_name, hex_code, display_order, price_adjustment
             ),
             product_media (
                 id, media_url, display_order, associated_color_id
@@ -321,13 +322,13 @@ window.deleteVariant = async (colorId) => {
 };
 
 // F. Actualización Completa de Variante (Color + Fotos con Wipe & Replace)
-window.updateVariantFull = async (variantId, parentProductId, name, hex, images) => {
+window.updateVariantFull = async (variantId, parentProductId, name, hex, images, priceAdjustment = 0) => {
     const supabase = getSupabase();
 
     // 1. Actualizar Datos del Color
     const { error: colorError } = await supabase
         .from('product_colors')
-        .update({ color_name: name, hex_code: hex })
+        .update({ color_name: name, hex_code: hex, price_adjustment: priceAdjustment })
         .eq('id', variantId);
 
     if (colorError) throw colorError;
