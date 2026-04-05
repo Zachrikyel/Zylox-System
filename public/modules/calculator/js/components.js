@@ -466,6 +466,7 @@ function PackageCalculator() {
       step: 1,
       quotes: [],
       selectedQuotes: {},
+      variantOverrides: {},
       logistics: { shipping: 'local', packagingSize: 'large' },
       profitMargin: 15,
       manualPrice: null,
@@ -525,6 +526,31 @@ function renderPackageStep1(state) {
                   </div>
                   ` : ''}
                 </div>
+                ${(() => {
+                  // Mostrar selector de variante por UNIDAD si tiene colores con price_adjustment
+                  const colors = quote.products?.product_colors || [];
+                  const hasVariants = isSelected && colors.length > 0 && colors.some(c => c.price_adjustment > 0);
+                  if (!hasVariants) return '';
+                  const unitOverrides = state.variantOverrides[quote.id] || [];
+                  const dropdowns = Array.from({ length: qty }, (_, idx) => {
+                    const currentOverride = unitOverrides[idx] || null;
+                    return `
+                      <div class="flex items-center gap-2">
+                        ${qty > 1 ? `<span class="text-[9px] text-zinc-500 font-mono w-6 shrink-0">#${idx + 1}</span>` : ''}
+                        <select onchange="setQuoteVariant('${quote.id}', ${idx}, this.value)" class="flex-1 bg-zinc-950 border border-zinc-800 p-2 text-white text-xs focus:border-cyan-500 outline-none">
+                          <option value="" ${!currentOverride ? 'selected' : ''}>Base — $${formatCurrency(quote.products.sale_price)}</option>
+                          ${colors.filter(c => c.price_adjustment > 0).map(c => `
+                            <option value="${c.id}" ${currentOverride?.colorId == c.id ? 'selected' : ''}>${c.color_name} — $${formatCurrency(quote.products.sale_price + c.price_adjustment)} (+${formatCurrency(c.price_adjustment)})</option>
+                          `).join('')}
+                        </select>
+                      </div>`;
+                  }).join('');
+                  return `
+                  <div class="mt-2 pt-2 border-t border-zinc-800/50" onclick="event.stopPropagation()">
+                    <label class="block text-[9px] text-cyan-400 font-mono uppercase tracking-widest mb-1">🎨 Variante${qty > 1 ? 's por Unidad' : ' de Color'}</label>
+                    <div class="space-y-1">${dropdowns}</div>
+                  </div>`;
+                })()}
               </div>`;
   }).join('')}</div>`}
         </div>
@@ -583,10 +609,13 @@ function renderPackageStep2(state) {
               ${n1.quotesBreakdown.map(q => `
                 <div class="p-2 border-b border-zinc-800/50 ${q.isMaster ? 'bg-purple-500/5' : ''}">
                   <div class="flex justify-between items-center text-xs">
-                    <span class="truncate flex-1 font-bold ${q.isMaster ? 'text-purple-400' : 'text-zinc-300'} uppercase">
-                      ${q.isMaster ? '👑 ' : ''}${q.productName || q.name}
-                    </span>
-                    <span class="font-mono font-bold ${q.isMaster ? 'text-purple-400' : 'text-white'}">
+                    <div class="truncate flex-1">
+                      <span class="font-bold ${q.isMaster ? 'text-purple-400' : 'text-zinc-300'} uppercase">
+                        ${q.isMaster ? '👑 ' : ''}${q.productName || q.name}
+                      </span>
+                      ${q.variantName ? `<span class="text-[9px] text-cyan-400 ml-1">(${q.variantName})</span>` : ''}
+                    </div>
+                    <span class="font-mono font-bold ${q.isMaster ? 'text-purple-400' : 'text-white'} shrink-0">
                       ${formatCurrency(q.contributedPrice)}
                     </span>
                   </div>
@@ -668,17 +697,81 @@ function renderPackageStep2(state) {
 // HELPERS DE PAQUETE (RESTAURADOS)
 window.loadQuotesForPackage = async () => { try { const quotes = await window.Storage.getQuotes(100, 0); window.packageState.quotes = quotes; window.packageState.loading = false; renderPackage(); } catch (error) { window.packageState.loading = false; renderPackage(); } };
 
-// Toggle: primer click agrega con qty=1, segundo click quita
-window.toggleQuoteSelection = (quoteId) => { const state = window.packageState; if (state.selectedQuotes[quoteId]) { delete state.selectedQuotes[quoteId]; } else { state.selectedQuotes[quoteId] = 1; } state.n1Results = null; state.results = null; renderPackage(); };
+// Toggle: primer click agrega con qty=1 (variante Base por defecto), segundo click quita
+window.toggleQuoteSelection = (quoteId) => {
+  const state = window.packageState;
+  if (state.selectedQuotes[quoteId]) {
+    delete state.selectedQuotes[quoteId];
+    delete state.variantOverrides[quoteId];
+  } else {
+    state.selectedQuotes[quoteId] = 1;
+    state.variantOverrides[quoteId] = [null]; // 1 unidad, variante Base
+  }
+  state.n1Results = null; state.results = null; renderPackage();
+};
 
-// Cambiar cantidad de un producto seleccionado (+/-)
-window.changeQuoteQty = (quoteId, delta) => { const state = window.packageState; const current = state.selectedQuotes[quoteId] || 0; const newQty = current + delta; if (newQty <= 0) { delete state.selectedQuotes[quoteId]; } else { state.selectedQuotes[quoteId] = newQty; } state.n1Results = null; state.results = null; renderPackage(); };
+// Cambiar cantidad: ajusta el array de overrides (agrega null=Base al final, o recorta)
+window.changeQuoteQty = (quoteId, delta) => {
+  const state = window.packageState;
+  const current = state.selectedQuotes[quoteId] || 0;
+  const newQty = current + delta;
+  if (newQty <= 0) {
+    delete state.selectedQuotes[quoteId];
+    delete state.variantOverrides[quoteId];
+  } else {
+    state.selectedQuotes[quoteId] = newQty;
+    const overrides = state.variantOverrides[quoteId] || [];
+    if (newQty > overrides.length) {
+      // Agregar nuevas unidades con variante Base (null)
+      while (overrides.length < newQty) overrides.push(null);
+    } else {
+      // Recortar desde el final
+      overrides.length = newQty;
+    }
+    state.variantOverrides[quoteId] = overrides;
+  }
+  state.n1Results = null; state.results = null; renderPackage();
+};
+
+// Seleccionar variante de color para una UNIDAD específica
+window.setQuoteVariant = (quoteId, unitIndex, colorId) => {
+  const state = window.packageState;
+  if (!state.variantOverrides[quoteId]) state.variantOverrides[quoteId] = [];
+  if (!colorId) {
+    state.variantOverrides[quoteId][unitIndex] = null; // Base
+  } else {
+    const quote = state.quotes.find(q => q.id === quoteId);
+    const color = quote?.products?.product_colors?.find(c => c.id == colorId);
+    if (color) {
+      state.variantOverrides[quoteId][unitIndex] = {
+        colorId: color.id,
+        colorName: color.color_name,
+        priceAdjustment: color.price_adjustment
+      };
+    }
+  }
+  state.n1Results = null; state.results = null; renderPackage();
+};
 
 // Obtener total de productos seleccionados (sumando cantidades)
 window.getTotalSelectedQty = () => { const sq = window.packageState?.selectedQuotes || {}; return Object.values(sq).reduce((sum, qty) => sum + qty, 0); };
 
-// Expandir mapa {id: qty} en array de objetos quote repetidos
-window.expandSelectedQuotes = (state) => { const expanded = []; Object.entries(state.selectedQuotes).forEach(([id, qty]) => { const quote = state.quotes.find(q => q.id === id); if (quote) { for (let i = 0; i < qty; i++) { expanded.push(quote); } } }); return expanded; };
+// Expandir mapa {id: qty} en array de objetos quote repetidos, con variant override POR UNIDAD
+window.expandSelectedQuotes = (state) => {
+  const expanded = [];
+  Object.entries(state.selectedQuotes).forEach(([id, qty]) => {
+    const quote = state.quotes.find(q => q.id === id);
+    if (quote) {
+      const overrides = state.variantOverrides?.[id] || [];
+      for (let i = 0; i < qty; i++) {
+        const clone = { ...quote };
+        if (overrides[i]) { clone._variantOverride = overrides[i]; }
+        expanded.push(clone);
+      }
+    }
+  });
+  return expanded;
+};
 
 window.goToPackageStep2 = () => { window.packageState.step = 2; window.packageState.results = null; window.packageState.n1Results = null; renderPackage(); };
 window.backToPackageStep1 = () => { window.packageState.step = 1; window.packageState.n1Results = null; window.packageState.results = null; renderPackage(); };

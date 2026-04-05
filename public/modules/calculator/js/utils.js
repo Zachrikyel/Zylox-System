@@ -314,19 +314,26 @@ function calculatePackageN1(selectedQuotes, packageLogistics) {
   const discounts = PACKAGE_CONFIG.DISCOUNT_OPTIONS;
 
   // === FUNCIÓN HELPER: Obtener precio de venta real ===
-  // Si tiene producto vinculado con sale_price, usar ese
-  // Si no, usar el finalPrice calculado de la cotización
+  // Respeta variante seleccionada (_variantOverride) si existe
   const getSalePrice = (quote) => {
+    let basePrice = 0;
     // Si tiene producto vinculado con sale_price, usar ese
     if (quote.products && quote.products.sale_price) {
-      return quote.products.sale_price;
+      basePrice = quote.products.sale_price;
     }
     // Si tiene linked_product_sale_price guardado, usar ese
-    if (quote.linked_product_sale_price) {
-      return quote.linked_product_sale_price;
+    else if (quote.linked_product_sale_price) {
+      basePrice = quote.linked_product_sale_price;
     }
     // Fallback: usar el precio calculado de la cotización
-    return quote.results.finalPrice;
+    else {
+      basePrice = quote.results.finalPrice;
+    }
+    // Si tiene override de variante, sumar el price_adjustment
+    if (quote._variantOverride && quote._variantOverride.priceAdjustment) {
+      basePrice += quote._variantOverride.priceAdjustment;
+    }
+    return basePrice;
   };
 
   // === ORDENAR POR PRECIO DESCENDENTE (El más caro = Master) ===
@@ -415,6 +422,7 @@ function calculatePackageN1(selectedQuotes, packageLogistics) {
       return {
         name: q.quote_name,
         productName: q.products?.name || null,
+        variantName: q._variantOverride?.colorName || null,
         originalPrice: salePrice,
         calculatedPrice: q.results.finalPrice,
         contributedPrice: i === 0 ? salePrice : salePrice - baseShippingDeduction,
@@ -574,7 +582,7 @@ async function getQuotes(limit = 50, offset = 0, filter = null) {
       .from('sicma_quotes')
       .select(`
         *,
-        products:product_id (name, sku, sale_price, base_price, display_order, pack_type)
+        products:product_id (name, sku, sale_price, base_price, display_order, pack_type, product_colors (id, color_name, price_adjustment))
       `)
       .order('created_at', { ascending: false });
 
@@ -646,7 +654,7 @@ async function searchQuotes(searchTerm) {
       .from('sicma_quotes')
       .select(`
         *,
-        products:product_id (name, sku, sale_price, base_price, display_order, pack_type)
+        products:product_id (name, sku, sale_price, base_price, display_order, pack_type, product_colors (id, color_name, price_adjustment))
       `)
       .or(`quote_name.ilike.${pattern},client_name.ilike.${pattern}`)
       .order('created_at', { ascending: false })
