@@ -465,7 +465,7 @@ function PackageCalculator() {
     window.packageState = {
       step: 1,
       quotes: [],
-      selectedQuotes: [],
+      selectedQuotes: {},
       logistics: { shipping: 'local', packagingSize: 'large' },
       profitMargin: 15,
       manualPrice: null,
@@ -499,30 +499,37 @@ function renderPackageStep1(state) {
         <div class="max-w-md mx-auto">
           <p class="text-sm text-zinc-400 mb-4">Selecciona las cotizaciones que quieres incluir en el paquete:</p>
           ${state.quotes.length === 0 ? `<div class="text-center py-20"><div class="text-6xl mb-4 grayscale opacity-50">📦</div><h2 class="text-lg font-bold text-white mb-2">No hay cotizaciones</h2><p class="text-xs text-zinc-500 mb-6 font-mono">Crea algunas cotizaciones primero</p><button onclick="navigateTo('calculator')" class="bg-purple-600 text-white px-6 py-3 text-xs font-bold uppercase tracking-widest clip-path-button">Crear Cotización</button></div>` : `<div class="space-y-3">${state.quotes.map(quote => {
-    const isSelected = state.selectedQuotes.includes(quote.id);
+    const qty = state.selectedQuotes[quote.id] || 0;
+    const isSelected = qty > 0;
     const displayOrder = quote.products?.display_order;
     const productName = quote.products?.name;
     return `
-              <div onclick="toggleQuoteSelection('${quote.id}')" 
-                   class="bg-zinc-900/70 border p-4 cursor-pointer transition-all relative overflow-hidden ${isSelected ? 'border-purple-500 bg-purple-500/10' : 'border-zinc-800 hover:border-zinc-700'}" 
+              <div class="bg-zinc-900/70 border p-4 transition-all relative overflow-hidden ${isSelected ? 'border-purple-500 bg-purple-500/10' : 'border-zinc-800 hover:border-zinc-700'}" 
                    style="clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);">
                 ${displayOrder != null ? `<div class="absolute left-0 top-0 bg-purple-500/20 text-purple-400 text-[9px] px-2 py-0.5 font-mono">#${displayOrder}</div>` : ''}
                 <div class="flex items-start gap-3">
-                  <div class="flex items-center justify-center w-6 h-6 border ${isSelected ? 'bg-purple-500 border-purple-500' : 'border-zinc-600'} transition-colors mt-1">
+                  <div onclick="toggleQuoteSelection('${quote.id}')" class="flex items-center justify-center w-6 h-6 border ${isSelected ? 'bg-purple-500 border-purple-500' : 'border-zinc-600'} transition-colors mt-1 cursor-pointer shrink-0">
                     ${isSelected ? `<span class="text-white text-xs">✓</span>` : ''}
                   </div>
-                  <div class="flex-1 min-w-0">
+                  <div class="flex-1 min-w-0 cursor-pointer" onclick="toggleQuoteSelection('${quote.id}')">
                     <h3 class="font-bold text-white truncate text-sm">${quote.quote_name}</h3>
                     ${productName ? `<p class="text-[10px] text-zinc-400 truncate">${productName}</p>` : ''}
                     ${quote.client_name ? `<p class="text-[10px] text-zinc-500 font-mono">Cliente: ${quote.client_name}</p>` : ''}
                     <p class="text-lg font-bold text-purple-400 mt-1">$${formatCurrency(quote.results.finalPrice)}</p>
                   </div>
+                  ${isSelected ? `
+                  <div class="flex items-center gap-2 shrink-0 mt-1" onclick="event.stopPropagation()">
+                    <button onclick="changeQuoteQty('${quote.id}', -1)" class="w-8 h-8 flex items-center justify-center bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-purple-500 hover:text-white transition text-lg font-bold">−</button>
+                    <span class="text-lg font-black text-purple-400 w-8 text-center font-mono">${qty}</span>
+                    <button onclick="changeQuoteQty('${quote.id}', 1)" class="w-8 h-8 flex items-center justify-center bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-purple-500 hover:text-white transition text-lg font-bold">+</button>
+                  </div>
+                  ` : ''}
                 </div>
               </div>`;
   }).join('')}</div>`}
         </div>
       </main>
-      ${state.selectedQuotes.length > 0 ? `<div class="fixed bottom-0 left-0 right-0 p-4 z-50 bg-gradient-to-t from-black via-black/90 to-transparent"><div class="max-w-md mx-auto"><button onclick="goToPackageStep2()" class="w-full flex items-center justify-center gap-2 py-4 bg-purple-600 text-white font-bold uppercase tracking-widest hover:bg-purple-500 transition-colors clip-path-button shadow-lg shadow-purple-900/20">Continuar (${state.selectedQuotes.length} seleccionados)</button></div></div>` : ''}
+      ${getTotalSelectedQty() > 0 ? `<div class="fixed bottom-0 left-0 right-0 p-4 z-50 bg-gradient-to-t from-black via-black/90 to-transparent"><div class="max-w-md mx-auto"><button onclick="goToPackageStep2()" class="w-full flex items-center justify-center gap-2 py-4 bg-purple-600 text-white font-bold uppercase tracking-widest hover:bg-purple-500 transition-colors clip-path-button shadow-lg shadow-purple-900/20">Continuar (${getTotalSelectedQty()} productos)</button></div></div>` : ''}
     </div>
   `;
 }
@@ -532,7 +539,7 @@ function renderPackageStep2(state) {
   const { formatCurrency } = window.Formatters;
   const { SHIPPING_OPTIONS, PACKAGING } = window.SICMA_CONSTANTS;
 
-  const selectedQuoteObjects = state.quotes.filter(q => state.selectedQuotes.includes(q.id));
+  const selectedQuoteObjects = expandSelectedQuotes(state);
   if (!state.n1Results) { state.n1Results = window.Calculations.calculatePackageN1(selectedQuoteObjects, state.logistics); }
   const n1 = state.n1Results;
   if (!state.results) calculatePackageResults();
@@ -660,10 +667,22 @@ function renderPackageStep2(state) {
 
 // HELPERS DE PAQUETE (RESTAURADOS)
 window.loadQuotesForPackage = async () => { try { const quotes = await window.Storage.getQuotes(100, 0); window.packageState.quotes = quotes; window.packageState.loading = false; renderPackage(); } catch (error) { window.packageState.loading = false; renderPackage(); } };
-window.toggleQuoteSelection = (quoteId) => { const state = window.packageState; const index = state.selectedQuotes.indexOf(quoteId); if (index > -1) { state.selectedQuotes.splice(index, 1); } else { state.selectedQuotes.push(quoteId); } renderPackage(); };
-window.goToPackageStep2 = () => { window.packageState.step = 2; window.packageState.results = null; renderPackage(); };
-window.backToPackageStep1 = () => { window.packageState.step = 1; renderPackage(); };
-window.calculatePackageResults = () => { const state = window.packageState; const selectedQuoteObjects = state.quotes.filter(q => state.selectedQuotes.includes(q.id)); const results = window.Calculations.calculatePackage(selectedQuoteObjects.map(q => ({ quote: q })), state.logistics, state.profitMargin); state.results = results; };
+
+// Toggle: primer click agrega con qty=1, segundo click quita
+window.toggleQuoteSelection = (quoteId) => { const state = window.packageState; if (state.selectedQuotes[quoteId]) { delete state.selectedQuotes[quoteId]; } else { state.selectedQuotes[quoteId] = 1; } state.n1Results = null; state.results = null; renderPackage(); };
+
+// Cambiar cantidad de un producto seleccionado (+/-)
+window.changeQuoteQty = (quoteId, delta) => { const state = window.packageState; const current = state.selectedQuotes[quoteId] || 0; const newQty = current + delta; if (newQty <= 0) { delete state.selectedQuotes[quoteId]; } else { state.selectedQuotes[quoteId] = newQty; } state.n1Results = null; state.results = null; renderPackage(); };
+
+// Obtener total de productos seleccionados (sumando cantidades)
+window.getTotalSelectedQty = () => { const sq = window.packageState?.selectedQuotes || {}; return Object.values(sq).reduce((sum, qty) => sum + qty, 0); };
+
+// Expandir mapa {id: qty} en array de objetos quote repetidos
+window.expandSelectedQuotes = (state) => { const expanded = []; Object.entries(state.selectedQuotes).forEach(([id, qty]) => { const quote = state.quotes.find(q => q.id === id); if (quote) { for (let i = 0; i < qty; i++) { expanded.push(quote); } } }); return expanded; };
+
+window.goToPackageStep2 = () => { window.packageState.step = 2; window.packageState.results = null; window.packageState.n1Results = null; renderPackage(); };
+window.backToPackageStep1 = () => { window.packageState.step = 1; window.packageState.n1Results = null; window.packageState.results = null; renderPackage(); };
+window.calculatePackageResults = () => { const state = window.packageState; const selectedQuoteObjects = expandSelectedQuotes(state); const results = window.Calculations.calculatePackage(selectedQuoteObjects.map(q => ({ quote: q })), state.logistics, state.profitMargin); state.results = results; };
 window.updatePackageLogisticsN1 = (key, value) => { window.packageState.logistics[key] = value; window.packageState.results = null; window.packageState.n1Results = null; renderPackage(); };
 window.updateDeluxePackagingCost = (value) => { window.packageState.logistics.deluxePackagingCost = value ? parseFloat(value) : 0; window.packageState.results = null; window.packageState.n1Results = null; renderPackage(); };
 window.updateManualPackagePrice = (value) => { window.packageState.manualPrice = value ? parseFloat(value) : null; renderPackage(); };
@@ -678,7 +697,7 @@ window.savePackageToDatabase = async () => {
   const r = state.n1Results || state.results;
   if (!r) return showNotification("Error en cálculo matemático", "error");
 
-  const selectedQuoteObjects = state.quotes.filter(q => state.selectedQuotes.includes(q.id));
+  const selectedQuoteObjects = expandSelectedQuotes(state);
   const invalidQuotes = selectedQuoteObjects.filter(q => !q.product_id);
 
   if (invalidQuotes.length > 0) {

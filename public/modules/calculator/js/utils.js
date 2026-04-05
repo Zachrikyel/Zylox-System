@@ -329,13 +329,17 @@ function calculatePackageN1(selectedQuotes, packageLogistics) {
     return quote.results.finalPrice;
   };
 
+  // === ORDENAR POR PRECIO DESCENDENTE (El más caro = Master) ===
+  // Clonamos para no mutar el array original
+  const sortedQuotes = [...selectedQuotes].sort((a, b) => getSalePrice(b) - getSalePrice(a));
+
   // === CÁLCULO DEL INGRESO BASE (Lógica N-1) ===
-  // Producto Master: precio de venta completo (incluye 1 envío y comisión)
-  let baseIncome = getSalePrice(selectedQuotes[0]);
+  // Producto Master (el MÁS CARO): precio de venta completo (incluye 1 envío y comisión)
+  let baseIncome = getSalePrice(sortedQuotes[0]);
 
   // Productos adicionales: precio de venta - envío base
-  for (let i = 1; i < selectedQuotes.length; i++) {
-    baseIncome += getSalePrice(selectedQuotes[i]) - baseShippingDeduction;
+  for (let i = 1; i < sortedQuotes.length; i++) {
+    baseIncome += getSalePrice(sortedQuotes[i]) - baseShippingDeduction;
   }
 
   // === COSTOS DE PRODUCCIÓN ===
@@ -405,7 +409,7 @@ function calculatePackageN1(selectedQuotes, packageLogistics) {
     productCount: selectedQuotes.length,
     decisionMatrix,
     maxSavings: baseIncome * 0.20,
-    quotesBreakdown: selectedQuotes.map((q, i) => {
+    quotesBreakdown: sortedQuotes.map((q, i) => {
       const salePrice = getSalePrice(q);
       const hasLinkedProduct = !!(q.products?.sale_price || q.linked_product_sale_price);
       return {
