@@ -582,7 +582,7 @@ async function getQuotes(limit = 50, offset = 0, filter = null) {
       .from('sicma_quotes')
       .select(`
         *,
-        products:product_id (name, sku, sale_price, base_price, display_order, pack_type, product_colors (id, color_name, price_adjustment))
+        products:product_id (name, sku, sale_price, base_price, display_order, pack_type, category_id, product_colors (id, color_name, price_adjustment))
       `)
       .order('created_at', { ascending: false });
 
@@ -654,7 +654,7 @@ async function searchQuotes(searchTerm) {
       .from('sicma_quotes')
       .select(`
         *,
-        products:product_id (name, sku, sale_price, base_price, display_order, pack_type, product_colors (id, color_name, price_adjustment))
+        products:product_id (name, sku, sale_price, base_price, display_order, pack_type, category_id, product_colors (id, color_name, price_adjustment))
       `)
       .or(`quote_name.ilike.${pattern},client_name.ilike.${pattern}`)
       .order('created_at', { ascending: false })

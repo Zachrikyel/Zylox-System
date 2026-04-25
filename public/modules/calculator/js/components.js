@@ -499,60 +499,79 @@ function renderPackageStep1(state) {
       <main class="flex-1 overflow-y-auto pb-32 p-5 pt-2">
         <div class="max-w-md mx-auto">
           <p class="text-sm text-zinc-400 mb-4">Selecciona las cotizaciones que quieres incluir en el paquete:</p>
-          ${state.quotes.length === 0 ? `<div class="text-center py-20"><div class="text-6xl mb-4 grayscale opacity-50">📦</div><h2 class="text-lg font-bold text-white mb-2">No hay cotizaciones</h2><p class="text-xs text-zinc-500 mb-6 font-mono">Crea algunas cotizaciones primero</p><button onclick="navigateTo('calculator')" class="bg-purple-600 text-white px-6 py-3 text-xs font-bold uppercase tracking-widest clip-path-button">Crear Cotización</button></div>` : `<div class="space-y-3">${state.quotes.map(quote => {
-    const qty = state.selectedQuotes[quote.id] || 0;
-    const isSelected = qty > 0;
-    const displayOrder = quote.products?.display_order;
-    const productName = quote.products?.name;
-    return `
-              <div class="bg-zinc-900/70 border p-4 transition-all relative overflow-hidden ${isSelected ? 'border-purple-500 bg-purple-500/10' : 'border-zinc-800 hover:border-zinc-700'}" 
-                   style="clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);">
-                ${displayOrder != null ? `<div class="absolute left-0 top-0 bg-purple-500/20 text-purple-400 text-[9px] px-2 py-0.5 font-mono">#${displayOrder}</div>` : ''}
-                <div class="flex items-start gap-3">
-                  <div onclick="toggleQuoteSelection('${quote.id}')" class="flex items-center justify-center w-6 h-6 border ${isSelected ? 'bg-purple-500 border-purple-500' : 'border-zinc-600'} transition-colors mt-1 cursor-pointer shrink-0">
-                    ${isSelected ? `<span class="text-white text-xs">✓</span>` : ''}
-                  </div>
-                  <div class="flex-1 min-w-0 cursor-pointer" onclick="toggleQuoteSelection('${quote.id}')">
-                    <h3 class="font-bold text-white truncate text-sm">${quote.quote_name}</h3>
-                    ${productName ? `<p class="text-[10px] text-zinc-400 truncate">${productName}</p>` : ''}
-                    ${quote.client_name ? `<p class="text-[10px] text-zinc-500 font-mono">Cliente: ${quote.client_name}</p>` : ''}
-                    <p class="text-lg font-bold text-purple-400 mt-1">$${formatCurrency(quote.results.finalPrice)}</p>
-                  </div>
-                  ${isSelected ? `
-                  <div class="flex items-center gap-2 shrink-0 mt-1" onclick="event.stopPropagation()">
-                    <button onclick="changeQuoteQty('${quote.id}', -1)" class="w-8 h-8 flex items-center justify-center bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-purple-500 hover:text-white transition text-lg font-bold">−</button>
-                    <span class="text-lg font-black text-purple-400 w-8 text-center font-mono">${qty}</span>
-                    <button onclick="changeQuoteQty('${quote.id}', 1)" class="w-8 h-8 flex items-center justify-center bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-purple-500 hover:text-white transition text-lg font-bold">+</button>
-                  </div>
-                  ` : ''}
-                </div>
-                ${(() => {
-                  // Mostrar selector de variante por UNIDAD si tiene colores con price_adjustment
-                  const colors = quote.products?.product_colors || [];
-                  const hasVariants = isSelected && colors.length > 0 && colors.some(c => c.price_adjustment > 0);
-                  if (!hasVariants) return '';
-                  const unitOverrides = state.variantOverrides[quote.id] || [];
-                  const dropdowns = Array.from({ length: qty }, (_, idx) => {
-                    const currentOverride = unitOverrides[idx] || null;
+          ${state.quotes.length === 0 ? `<div class="text-center py-20"><div class="text-6xl mb-4 grayscale opacity-50">📦</div><h2 class="text-lg font-bold text-white mb-2">No hay cotizaciones</h2><p class="text-xs text-zinc-500 mb-6 font-mono">Crea algunas cotizaciones primero</p><button onclick="navigateTo('calculator')" class="bg-purple-600 text-white px-6 py-3 text-xs font-bold uppercase tracking-widest clip-path-button">Crear Cotización</button></div>` : `
+            <div class="space-y-6">
+              ${Object.entries(
+                state.quotes.reduce((acc, quote) => {
+                  const cat = quote._categoryName || 'Sin Categoría';
+                  if (!acc[cat]) acc[cat] = [];
+                  acc[cat].push(quote);
+                  return acc;
+                }, {})
+              ).sort((a, b) => {
+                 if (a[0] === 'Sin Categoría') return 1;
+                 if (b[0] === 'Sin Categoría') return -1;
+                 return a[0].localeCompare(b[0]);
+              }).map(([categoryName, groupQuotes]) => `
+                <div class="space-y-3">
+                  <h3 class="text-sm font-bold text-cyan-400 uppercase border-b border-zinc-800 pb-2 pl-2 border-l-2 border-l-cyan-500">${categoryName}</h3>
+                  ${groupQuotes.map(quote => {
+                    const qty = state.selectedQuotes[quote.id] || 0;
+                    const isSelected = qty > 0;
+                    const displayOrder = quote.products?.display_order;
+                    const productName = quote.products?.name;
                     return `
-                      <div class="flex items-center gap-2">
-                        ${qty > 1 ? `<span class="text-[9px] text-zinc-500 font-mono w-6 shrink-0">#${idx + 1}</span>` : ''}
-                        <select onchange="setQuoteVariant('${quote.id}', ${idx}, this.value)" class="flex-1 bg-zinc-950 border border-zinc-800 p-2 text-white text-xs focus:border-cyan-500 outline-none">
-                          <option value="" ${!currentOverride ? 'selected' : ''}>Base — $${formatCurrency(quote.products.sale_price)}</option>
-                          ${colors.filter(c => c.price_adjustment > 0).map(c => `
-                            <option value="${c.id}" ${currentOverride?.colorId == c.id ? 'selected' : ''}>${c.color_name} — $${formatCurrency(quote.products.sale_price + c.price_adjustment)} (+${formatCurrency(c.price_adjustment)})</option>
-                          `).join('')}
-                        </select>
-                      </div>`;
-                  }).join('');
-                  return `
-                  <div class="mt-2 pt-2 border-t border-zinc-800/50" onclick="event.stopPropagation()">
-                    <label class="block text-[9px] text-cyan-400 font-mono uppercase tracking-widest mb-1">🎨 Variante${qty > 1 ? 's por Unidad' : ' de Color'}</label>
-                    <div class="space-y-1">${dropdowns}</div>
-                  </div>`;
-                })()}
-              </div>`;
-  }).join('')}</div>`}
+                              <div class="bg-zinc-900/70 border p-4 transition-all relative overflow-hidden ${isSelected ? 'border-purple-500 bg-purple-500/10' : 'border-zinc-800 hover:border-zinc-700'}" 
+                                   style="clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);">
+                                ${displayOrder != null ? `<div class="absolute left-0 top-0 bg-purple-500/20 text-purple-400 text-[9px] px-2 py-0.5 font-mono">#${displayOrder}</div>` : ''}
+                                <div class="flex items-start gap-3">
+                                  <div onclick="toggleQuoteSelection('${quote.id}')" class="flex items-center justify-center w-6 h-6 border ${isSelected ? 'bg-purple-500 border-purple-500' : 'border-zinc-600'} transition-colors mt-1 cursor-pointer shrink-0">
+                                    ${isSelected ? `<span class="text-white text-xs">✓</span>` : ''}
+                                  </div>
+                                  <div class="flex-1 min-w-0 cursor-pointer" onclick="toggleQuoteSelection('${quote.id}')">
+                                    <h3 class="font-bold text-white truncate text-sm">${quote.quote_name}</h3>
+                                    ${productName ? `<p class="text-[10px] text-zinc-400 truncate">${productName}</p>` : ''}
+                                    ${quote.client_name ? `<p class="text-[10px] text-zinc-500 font-mono">Cliente: ${quote.client_name}</p>` : ''}
+                                    <p class="text-lg font-bold text-purple-400 mt-1">$${formatCurrency(quote.results.finalPrice)}</p>
+                                  </div>
+                                  ${isSelected ? `
+                                  <div class="flex items-center gap-2 shrink-0 mt-1" onclick="event.stopPropagation()">
+                                    <button onclick="changeQuoteQty('${quote.id}', -1)" class="w-8 h-8 flex items-center justify-center bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-purple-500 hover:text-white transition text-lg font-bold">−</button>
+                                    <span class="text-lg font-black text-purple-400 w-8 text-center font-mono">${qty}</span>
+                                    <button onclick="changeQuoteQty('${quote.id}', 1)" class="w-8 h-8 flex items-center justify-center bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-purple-500 hover:text-white transition text-lg font-bold">+</button>
+                                  </div>
+                                  ` : ''}
+                                </div>
+                                ${(() => {
+                                  const colors = quote.products?.product_colors || [];
+                                  const hasVariants = isSelected && colors.length > 0 && colors.some(c => c.price_adjustment > 0);
+                                  if (!hasVariants) return '';
+                                  const unitOverrides = state.variantOverrides[quote.id] || [];
+                                  const dropdowns = Array.from({ length: qty }, (_, idx) => {
+                                    const currentOverride = unitOverrides[idx] || null;
+                                    return `
+                                      <div class="flex items-center gap-2">
+                                        ${qty > 1 ? `<span class="text-[9px] text-zinc-500 font-mono w-6 shrink-0">#${idx + 1}</span>` : ''}
+                                        <select onchange="setQuoteVariant('${quote.id}', ${idx}, this.value)" class="flex-1 bg-zinc-950 border border-zinc-800 p-2 text-white text-xs focus:border-cyan-500 outline-none">
+                                          <option value="" ${!currentOverride ? 'selected' : ''}>Base — $${formatCurrency(quote.products.sale_price)}</option>
+                                          ${colors.filter(c => c.price_adjustment > 0).map(c => `
+                                            <option value="${c.id}" ${currentOverride?.colorId == c.id ? 'selected' : ''}>${c.color_name} — $${formatCurrency(quote.products.sale_price + c.price_adjustment)} (+${formatCurrency(c.price_adjustment)})</option>
+                                          `).join('')}
+                                        </select>
+                                      </div>`;
+                                  }).join('');
+                                  return `
+                                  <div class="mt-2 pt-2 border-t border-zinc-800/50" onclick="event.stopPropagation()">
+                                    <label class="block text-[9px] text-cyan-400 font-mono uppercase tracking-widest mb-1">🎨 Variante${qty > 1 ? 's por Unidad' : ' de Color'}</label>
+                                    <div class="space-y-1">${dropdowns}</div>
+                                  </div>`;
+                                })()}
+                              </div>`;
+                  }).join('')}
+                </div>
+              `).join('')}
+            </div>
+          `}
         </div>
       </main>
       ${getTotalSelectedQty() > 0 ? `<div class="fixed bottom-0 left-0 right-0 p-4 z-50 bg-gradient-to-t from-black via-black/90 to-transparent"><div class="max-w-md mx-auto"><button onclick="goToPackageStep2()" class="w-full flex items-center justify-center gap-2 py-4 bg-purple-600 text-white font-bold uppercase tracking-widest hover:bg-purple-500 transition-colors clip-path-button shadow-lg shadow-purple-900/20">Continuar (${getTotalSelectedQty()} productos)</button></div></div>` : ''}
@@ -695,7 +714,28 @@ function renderPackageStep2(state) {
 }
 
 // HELPERS DE PAQUETE (RESTAURADOS)
-window.loadQuotesForPackage = async () => { try { const quotes = await window.Storage.getQuotes(100, 0); window.packageState.quotes = quotes; window.packageState.loading = false; renderPackage(); } catch (error) { window.packageState.loading = false; renderPackage(); } };
+window.loadQuotesForPackage = async () => { 
+  try { 
+    const [quotes, categories] = await Promise.all([
+      window.Storage.getQuotes(1000, 0),
+      window.Storage.getCategories()
+    ]);
+    const catMap = {};
+    if (categories) categories.forEach(c => catMap[c.id] = c.name);
+    quotes.forEach(quote => {
+      let catId = quote.products?.category_id;
+      quote._categoryName = catMap[catId] || 'Sin Categoría';
+    });
+    window.packageState.quotes = quotes; 
+    window.packageState.categories = categories;
+    window.packageState.loading = false; 
+    renderPackage(); 
+  } catch (error) { 
+    console.error(error);
+    window.packageState.loading = false; 
+    renderPackage(); 
+  } 
+};
 
 // Toggle: primer click agrega con qty=1 (variante Base por defecto), segundo click quita
 window.toggleQuoteSelection = (quoteId) => {
