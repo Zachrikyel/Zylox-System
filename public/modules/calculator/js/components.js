@@ -228,6 +228,14 @@ function Calculator() {
   window.nextStep = () => {
     if (state.step === 1 && (!state.config.kwhPrice || !state.config.materialCostPerKg)) return showNotification('Faltan datos de configuración', 'warning');
     if (state.step === 2 && (!state.print.printHours || !state.print.materialCost)) return showNotification('Faltan datos de impresión', 'warning');
+    // Si hay preset activo en paso 3, saltar directamente a resultados
+    if (state.step === 3 && state._activePreset) {
+      state.results = window.Calculations.calculateQuote({ config: state.config, print: state.print, labor: state.labor, logistics: state.logistics, pricing: state.pricing });
+      state.step = 6;
+      renderCalculator();
+      scrollToTop();
+      return;
+    }
     if (state.step === 4) {
       if (state.logistics.shipping === 'national' && !state.logistics.shippingCustom) return showNotification('Falta costo de envío', 'warning');
       if (state.logistics.packagingSize === 'deluxe' && !state.logistics.packagingCustom) return showNotification('Falta costo de empaque', 'warning');
@@ -310,9 +318,142 @@ function Calculator() {
   }
 
   else if (state.step === 3) {
+    // --- PRESETS DE PRODUCTO ---
+    const PRODUCT_PRESETS = {
+      guardianes: {
+        name: 'Guardianes Legendarios',
+        icon: '🛡️',
+        color: 'purple',
+        complexity: 'easy',
+        primerToggle: true,
+        lacquerToggle: true,
+        shipping: 'local',
+        packagingType: 'box',
+        packagingSize: 'large',
+        packagingCustom: 0,
+        additionalsToggle: true,
+        isFreeShipping: true
+      },
+      pokeballs: {
+        name: 'Pokeballs',
+        icon: '🔴',
+        color: 'red',
+        complexity: 'easy',
+        primerToggle: true,
+        lacquerToggle: true,
+        shipping: 'local',
+        packagingType: 'box',
+        packagingSize: 'large',
+        packagingCustom: 0,
+        additionalsToggle: true,
+        isFreeShipping: true
+      },
+      llaveros: {
+        name: 'Llaveros',
+        icon: '🔑',
+        color: 'amber',
+        complexity: 'simple',
+        primerToggle: false,
+        lacquerToggle: false,
+        shipping: 'pickup',
+        packagingType: 'box',
+        packagingSize: 'deluxe',
+        packagingCustom: 500,
+        additionalsToggle: true,
+        isFreeShipping: false
+      }
+    };
+
+    // Función global para aplicar preset
+    window.applyPreset = (presetKey) => {
+      const preset = PRODUCT_PRESETS[presetKey];
+      if (!preset) return;
+      // Marcar preset activo
+      state._activePreset = presetKey;
+      // Complejidad + acabados (step 3)
+      state.labor.complexity = preset.complexity;
+      state.labor.primerToggle = preset.primerToggle;
+      state.labor.lacquerToggle = preset.lacquerToggle;
+      // Margen según complejidad
+      const margins = { simple: 25, easy: 30, medium: 35, hard: 40 };
+      if (margins[preset.complexity]) state.pricing.profitMargin = margins[preset.complexity];
+      // Logística (step 4)
+      state.logistics.shipping = preset.shipping;
+      state.logistics.packagingType = preset.packagingType;
+      state.logistics.packagingSize = preset.packagingSize;
+      state.logistics.packagingCustom = preset.packagingCustom;
+      state.logistics.additionalsToggle = preset.additionalsToggle;
+      state.logistics.isFreeShipping = preset.isFreeShipping;
+      renderCalculatorWithScroll();
+    };
+
+    window.clearPreset = () => {
+      state._activePreset = null;
+      renderCalculatorWithScroll();
+    };
+
+    // Panel toggle state
+    if (!state._step3Panel) state._step3Panel = 'presets';
+    const isPresetsPanel = state._step3Panel === 'presets';
+
+    // Colores para presets
+    const presetColors = {
+      purple: { border: 'border-purple-500', bg: 'bg-purple-500/10', text: 'text-purple-400', glow: 'shadow-purple-500/20' },
+      red: { border: 'border-red-500', bg: 'bg-red-500/10', text: 'text-red-400', glow: 'shadow-red-500/20' },
+      amber: { border: 'border-amber-500', bg: 'bg-amber-500/10', text: 'text-amber-400', glow: 'shadow-amber-500/20' }
+    };
+
     content = `
       <div class="space-y-5 animate-fade-in">
         <h2 class="text-xl font-black text-cyan-400 uppercase italic">Complejidad</h2>
+
+        <!-- Panel Switcher -->
+        <div class="grid grid-cols-2 gap-2 bg-zinc-900 p-1.5 rounded-xl border border-zinc-800">
+          <button onclick="window.calculatorState._step3Panel = 'presets'; renderCalculatorWithScroll();"
+            class="py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${isPresetsPanel ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/30' : 'text-zinc-400 hover:text-white'}">
+            ⚡ Presets
+          </button>
+          <button onclick="window.calculatorState._step3Panel = 'manual'; renderCalculatorWithScroll();"
+            class="py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${!isPresetsPanel ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/30' : 'text-zinc-400 hover:text-white'}">
+            🔧 Manual
+          </button>
+        </div>
+
+        ${isPresetsPanel ? `
+        <!-- PRESETS PANEL -->
+        <div class="space-y-3">
+          <p class="text-xs text-zinc-500 font-mono">Selecciona un preset para autoconfigurar complejidad, acabados, logística y envío.</p>
+          ${Object.entries(PRODUCT_PRESETS).map(([key, preset]) => {
+            const isActive = state._activePreset === key;
+            const c = presetColors[preset.color];
+            const complexityLabel = COMPLEXITY_LEVELS[preset.complexity]?.name || preset.complexity;
+            return `
+            <button onclick="applyPreset('${key}')" class="w-full p-4 rounded-xl border-2 transition-all text-left relative overflow-hidden ${isActive ? c.border + ' ' + c.bg + ' shadow-lg ' + c.glow : 'border-zinc-700 bg-zinc-800 hover:border-zinc-600'}">
+              ${isActive ? '<div class="absolute top-2 right-3 text-[10px] font-black uppercase tracking-widest ' + c.text + '">✓ ACTIVO</div>' : ''}
+              <div class="flex items-center gap-3 mb-2">
+                <span class="text-2xl">${preset.icon}</span>
+                <span class="text-lg font-bold text-white">${preset.name}</span>
+              </div>
+              <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-zinc-400 ml-9">
+                <div>• Complejidad: <span class="text-white font-semibold">${complexityLabel}</span></div>
+                <div>• Primer: <span class="${preset.primerToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.primerToggle ? 'Sí' : 'No'}</span></div>
+                <div>• Laca: <span class="${preset.lacquerToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.lacquerToggle ? 'Sí' : 'No'}</span></div>
+                <div>• Envío: <span class="text-white font-semibold">${preset.shipping === 'pickup' ? 'Recogida' : preset.shipping === 'local' ? 'Local' : 'Nacional'}</span></div>
+                <div>• Caja: <span class="text-white font-semibold">${preset.packagingSize === 'deluxe' ? 'Custom $' + preset.packagingCustom : 'Grande $5.000'}</span></div>
+                <div>• Envío Gratis: <span class="${preset.isFreeShipping ? 'text-green-400' : 'text-zinc-600'}">${preset.isFreeShipping ? 'Sí' : 'No'}</span></div>
+              </div>
+            </button>`;
+          }).join('')}
+
+          ${state._activePreset ? `
+          <div class="mt-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg text-xs text-green-400 font-mono flex items-center justify-between">
+            <span>✅ Preset "${PRODUCT_PRESETS[state._activePreset].name}" aplicado — Logística preconfigurada</span>
+            <button onclick="clearPreset()" class="text-zinc-500 hover:text-red-400 transition text-[10px] uppercase font-bold tracking-widest ml-2">Limpiar</button>
+          </div>
+          ` : ''}
+        </div>
+        ` : `
+        <!-- MANUAL PANEL -->
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
           <label class="block text-sm text-zinc-400 mb-4">Nivel de Complejidad</label>
           <div class="space-y-3">${Object.entries(COMPLEXITY_LEVELS).map(([key, level]) => { const isSelected = state.labor.complexity === key; const estimatedCost = (level.suppliesCost + ((level.postProcessMinutes + level.operatorMinutes) / 60 * 20000) * (1 + level.failureRisk)).toFixed(0); return `<button onclick="updateLabor('complexity', '${key}')" class="w-full p-4 rounded-xl border-2 transition text-left ${isSelected ? 'border-cyan-500 bg-cyan-500/10' : 'border-zinc-700 bg-zinc-800'}"><div class="flex items-center justify-between mb-2"><span class="text-lg font-bold text-white">${level.name}</span><span class="text-sm text-cyan-400 font-mono">${formatCurrency(estimatedCost)}</span></div><div class="space-y-1 text-xs text-zinc-400"><div>• Post-proceso: ${level.postProcessMinutes} min</div><div>• Operador: ${level.operatorMinutes} min</div><div>• Riesgo fallo: ${(level.failureRisk * 100).toFixed(0)}%</div><div>• Insumos: ${formatCurrency(level.suppliesCost)}</div></div>${level.description ? `<div class="text-xs text-zinc-500 mt-2 italic">${level.description}</div>` : ''}</button>`; }).join('')}</div>
@@ -326,6 +467,7 @@ function Calculator() {
           </div>
           <p class="text-xs text-zinc-500 mt-3">💡 Activa solo si la pieza requiere estos acabados</p>
         </div>
+        `}
       </div>
     `;
   }
@@ -334,6 +476,7 @@ function Calculator() {
     content = `
       <div class="space-y-5 animate-fade-in">
         <h2 class="text-xl font-black text-cyan-400 uppercase italic">Logística</h2>
+        ${state._activePreset ? `<div class="p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg text-xs text-purple-400 font-mono flex items-center gap-2">⚡ Preset activo — Valores preconfigurados. Puedes modificarlos si lo necesitas.</div>` : ''}
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
           <label class="block text-sm text-zinc-400 mb-3 flex items-center gap-2">${Icons.Truck()} Envío</label>
           <div class="space-y-2">${SHIPPING_OPTIONS.map(option => `<button onclick="updateLogistics('shipping', '${option.id}')" class="w-full p-4 rounded-xl border-2 transition flex items-center justify-between ${state.logistics.shipping === option.id ? 'border-cyan-500 bg-cyan-500/10' : 'border-zinc-700 bg-zinc-800'}"><div class="flex items-center gap-3"><div class="text-2xl">${option.icon}</div><div class="text-sm font-semibold">${option.name}</div></div><div class="text-sm font-bold">${option.id === 'national' ? 'Personalizado' : (option.cost === 0 ? 'Gratis' : `${formatCurrency(option.cost)}`)}</div></button>`).join('')}</div>
