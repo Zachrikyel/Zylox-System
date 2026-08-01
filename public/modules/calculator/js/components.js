@@ -489,7 +489,7 @@ function Calculator() {
           <select onchange="updateLogistics('packagingSize', this.value)" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white font-semibold focus:outline-none focus:border-cyan-500 mb-3">${PACKAGING.map(p => `<option value="${p.id}" ${state.logistics.packagingSize === p.id ? 'selected' : ''}>${p.name}${p.cost > 0 ? ` - ${formatCurrency(p.cost)}` : ''}</option>`).join('')}</select>
           ${state.logistics.packagingSize === 'deluxe' ? `<div><label class="block text-sm text-zinc-400 mb-2">Costo Personalizado</label><input type="text" inputmode="decimal" value="${state.logistics.packagingCustom}" oninput="debouncedUpdate('packagingCustom', 'logistics', parseFloat(this.value) || 0)" onblur="handleInputBlur('packagingCustom', 'logistics', parseFloat(this.value) || 0)" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-lg font-bold text-cyan-400 focus:outline-none focus:border-cyan-500" placeholder="Ingrese costo" /></div>` : ''}
         </div>
-        <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800"><div class="flex items-center justify-between p-3 bg-zinc-800 rounded-lg"><div class="flex items-center gap-2">${Icons.Sparkles(18)}<span class="text-sm">Cargo Adicional (+2%)</span></div><button onclick="updateLogistics('additionalsToggle', ${!state.logistics.additionalsToggle})" class="w-12 h-6 rounded-full transition relative ${state.logistics.additionalsToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.logistics.additionalsToggle ? 'translate-x-6' : ''}"></div></button></div><p class="text-xs text-zinc-500 mt-2">Activa para agregar 2% al costo de embalaje</p></div>
+        <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800"><div class="flex items-center justify-between p-3 bg-zinc-800 rounded-lg"><div class="flex items-center gap-2">${Icons.Sparkles(18)}<span class="text-sm">Imanes/Llaveros (+2%)</span></div><button onclick="updateLogistics('additionalsToggle', ${!state.logistics.additionalsToggle})" class="w-12 h-6 rounded-full transition relative ${state.logistics.additionalsToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.logistics.additionalsToggle ? 'translate-x-6' : ''}"></div></button></div><p class="text-xs text-zinc-500 mt-2">Activa si lleva imán o llavero. Agrega 2% sobre el precio de venta</p></div>
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800"><div class="flex items-center justify-between p-3 bg-zinc-800 rounded-lg"><div class="flex items-center gap-2"><span class="text-lg">🚚</span><div><div class="text-sm font-semibold">Envío Gratis</div><div class="text-xs text-zinc-500">Marcar si este producto lleva envío gratuito</div></div></div><button onclick="updateLogistics('isFreeShipping', ${!state.logistics.isFreeShipping})" class="w-12 h-6 rounded-full transition relative ${state.logistics.isFreeShipping ? 'bg-green-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.logistics.isFreeShipping ? 'translate-x-6' : ''}"></div></button></div>${state.logistics.isFreeShipping ? '<div class="mt-3 p-2 bg-green-500/10 border border-green-500/30 rounded-lg text-xs text-green-400 font-mono">✅ Este producto tendrá envío GRATIS en la tienda</div>' : ''}</div>
       </div>
     `;
@@ -508,8 +508,8 @@ function Calculator() {
           <div class="flex items-center gap-3 mb-4"><input type="text" inputmode="decimal" value="${state.pricing.profitMargin}" oninput="debouncedUpdate('profitMargin', 'pricing', parseFloat(this.value) || 0)" onblur="handleInputBlur('profitMargin', 'pricing', parseFloat(this.value) || 0)" class="w-24 bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-center text-2xl font-bold text-cyan-400 focus:outline-none focus:border-cyan-500" /><span class="text-2xl text-white">%</span><div class="text-xs text-zinc-500 flex-1">≈ Multiplicar por <span class="text-white font-bold">${(1 / (1 - state.pricing.profitMargin / 100)).toFixed(1)}x</span></div></div>
         </div>
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
-          <label class="block text-sm text-zinc-400 mb-2 flex items-center gap-2">${Icons.Sparkles()} Cargo Adicional</label>
-          <p class="text-xs text-zinc-500 mb-3">Para piezas muy personalizadas. Este valor se cobra APARTE (no entra en Wompi).</p>
+          <label class="block text-sm text-zinc-400 mb-2 flex items-center gap-2">${Icons.Sparkles()} Cargo Personalizado</label>
+          <p class="text-xs text-zinc-500 mb-3">Para piezas muy personalizadas. Se suma completo al total a cobrar, pero se cobra APARTE de la pasarela (no entra en Wompi).</p>
           <input type="text" inputmode="decimal" value="${state.pricing.additionalCharge}" oninput="debouncedUpdate('additionalCharge', 'pricing', parseFloat(this.value) || 0)" onblur="handleInputBlur('additionalCharge', 'pricing', parseFloat(this.value) || 0)" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-xl font-bold text-purple-400 focus:outline-none focus:border-purple-500" placeholder="0" />
         </div>
       </div>
@@ -521,9 +521,14 @@ function Calculator() {
     content = `
       <div class="space-y-5 animate-fade-in">
         <div class="text-center mb-8 bg-gradient-to-br from-zinc-900 to-zinc-800 rounded-3xl p-8 border border-zinc-700 shadow-2xl">
-          <p class="text-zinc-500 text-xs uppercase tracking-widest mb-2">Precio a Cobrar</p>
+          <p class="text-zinc-500 text-xs uppercase tracking-widest mb-2">${r.customCharge > 0 ? 'Precio por Wompi' : 'Precio a Cobrar'}</p>
           <h1 class="text-6xl font-black text-white mb-3 tracking-tight">${formatCurrency(r.finalPrice)}</h1>
           <div class="flex justify-center gap-4 text-xs font-mono text-zinc-500"><span>USD ${(r.finalPrice / 4100).toFixed(2)}</span><span>|</span><span>EUR €${(r.finalPrice / 4400).toFixed(2)}</span></div>
+          ${r.customCharge > 0 ? `
+          <div class="mt-4 pt-4 border-t border-zinc-700 space-y-1">
+            <div class="flex justify-between text-sm"><span class="text-purple-400">+ Cargo Personalizado (aparte)</span><span class="font-mono text-purple-400 font-bold">${formatCurrency(r.customCharge)}</span></div>
+            <div class="flex justify-between text-base pt-1"><span class="text-white font-bold">Total a Cobrar</span><span class="font-mono text-white font-black">${formatCurrency(r.totalToCharge)}</span></div>
+          </div>` : ''}
         </div>
         <div class="bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden mb-5">
           <div class="bg-zinc-800 p-3 text-center"><span class="text-xs font-bold text-zinc-400 uppercase">Resumen de Producción</span></div>
@@ -532,6 +537,7 @@ function Calculator() {
             <div class="flex justify-between"><span class="text-zinc-400">⚡ Costo Energía</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.energy)}</span></div>
             <div class="flex justify-between"><span class="text-zinc-400">🔧 Desgaste Máquina</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.wear)}</span></div>
             <div class="flex justify-between"><span class="text-zinc-400">📦 Material Total</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.material)}</span></div>
+            ${r.extrasCost > 0 ? `<div class="flex justify-between"><span class="text-zinc-400">🧲 Imanes/Llaveros (+2%)</span><span class="font-mono text-white font-bold">${formatCurrency(r.extrasCost)}</span></div>` : ''}
           </div>
         </div>
         <div class="bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden">

@@ -164,16 +164,23 @@ function calculateQuote(params) {
     const pkg = PACKAGING.find(p => p.id === logistics.packagingSize);
     packagingCost = pkg ? pkg.cost : 0;
   }
-  if (logistics.additionalsToggle) {
-    packagingCost *= (1 + SYSTEM_CONFIG.PACKAGING_ADDITIONAL_RISK);
-  }
   const logisticsCosts = shipping.cost + packagingCost;
 
-  // Costo base
-  const baseCost = hardCosts + softCosts + logisticsCosts;
+  // Costo base preliminar (sin cargo de imanes/llaveros)
+  const baseCostPrelim = hardCosts + softCosts + logisticsCosts;
+  const marginDecimal = pricing.profitMargin / 100;
+  const sellPricePrelim = baseCostPrelim / (1 - marginDecimal);
+
+  // Cargo Adicional (imanes/llaveros): 2% sobre el precio de venta estimado
+  let extrasCost = 0;
+  if (logistics.additionalsToggle) {
+    extrasCost = sellPricePrelim * SYSTEM_CONFIG.EXTRAS_CHARGE_RATE;
+  }
+
+  // Costo base final
+  const baseCost = baseCostPrelim + extrasCost;
 
   // Precio de venta
-  const marginDecimal = pricing.profitMargin / 100;
   const sellPrice = baseCost / (1 - marginDecimal);
 
   // Ajuste por pasarela
@@ -196,6 +203,10 @@ function calculateQuote(params) {
   const netProfit = sellPrice - baseCost;
   const totalProductionTime = totalPrintHours + totalCoolHours + totalLaborHours;
 
+  // Cargo Personalizado: se cobra aparte, no entra a la pasarela ni al margen
+  const customCharge = pricing.additionalCharge || 0;
+  const totalToCharge = finalPrice + customCharge;
+
   return {
     finalPrice,
     hardCosts,
@@ -204,7 +215,9 @@ function calculateQuote(params) {
     netProfit,
     feeEstimate,
     sellPrice,
-    additionalCharge: pricing.additionalCharge || 0,
+    extrasCost,
+    customCharge,
+    totalToCharge,
     totalProductionTime,
     totalPrintHours,
     totalCoolHours,
@@ -215,33 +228,44 @@ function calculateQuote(params) {
       material: costMaterial,
       labor: costLabor,
       packaging: packagingCost,
+      extras: extrasCost,
       shipping: shipping.cost
     }
   };
 }
 
-function recalculateVariant(originalResults, newShipping, newPackaging, profitMargin) {
+function recalculateVariant(originalResults, newShipping, newPackaging, profitMargin, additionalsToggle, customCharge) {
   const { SHIPPING_OPTIONS, PACKAGING, SYSTEM_CONFIG } = getConstants();
   const shipping = SHIPPING_OPTIONS.find(s => s.id === newShipping);
   const packaging = PACKAGING.find(p => p.id === newPackaging);
 
   const productionCosts = originalResults.hardCosts + originalResults.softCosts;
   const newLogisticsCosts = shipping.cost + packaging.cost;
-  const newBaseCost = productionCosts + newLogisticsCosts;
+  const baseCostPrelim = productionCosts + newLogisticsCosts;
 
   const marginDecimal = profitMargin / 100;
+  const sellPricePrelim = baseCostPrelim / (1 - marginDecimal);
+
+  let extrasCost = 0;
+  if (additionalsToggle) {
+    extrasCost = sellPricePrelim * SYSTEM_CONFIG.EXTRAS_CHARGE_RATE;
+  }
+  const newBaseCost = baseCostPrelim + extrasCost;
   const newSellPrice = newBaseCost / (1 - marginDecimal);
 
   const wompiRate = SYSTEM_CONFIG.WOMPI_RATE * (1 + SYSTEM_CONFIG.WOMPI_IVA);
   const finalPrice = Math.ceil((newSellPrice / (1 - wompiRate)) / 100) * 100;
   const feeEstimate = finalPrice - newSellPrice;
   const netProfit = newSellPrice - newBaseCost;
+  const totalToCharge = finalPrice + (customCharge || 0);
 
   return {
     finalPrice,
     logisticsCosts: newLogisticsCosts,
     netProfit,
-    feeEstimate
+    feeEstimate,
+    extrasCost,
+    totalToCharge
   };
 }
 
@@ -544,7 +568,9 @@ async function generateVariantsForQuote(quote) {
         quote.results,
         config.shipping,
         config.packaging,
-        quote.pricing.profitMargin
+        quote.pricing.profitMargin,
+        quote.logistics?.additionalsToggle,
+        quote.pricing?.additionalCharge
       );
 
       return {
