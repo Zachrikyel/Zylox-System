@@ -68,8 +68,8 @@ const SYSTEM_CONFIG = {
   DEFAULT_MARGIN: 30,
   HOURLY_LABOR_RATE: 20000,
   AMS_ADDITIONAL_RISK: 0.02,
-  PRIMER_COST: 1000,
-  LACQUER_COST: 1000,
+  PRIMER_COST: 6900,
+  LACQUER_COST: 5600,
   EXTRAS_CHARGE_RATE: 0.02, // Imanes/llaveros: % sobre precio de venta estimado (antes se aplicaba mal sobre el costo de empaque)
   WOMPI_RATE: 0.0265,
   WOMPI_IVA: 0.19
