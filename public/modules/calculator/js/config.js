@@ -26,15 +26,15 @@ const SHIPPING_OPTIONS = [
   { id: 'urgente', name: 'Urgente', cost: 0, icon: '⚡' } // costo real va en logistics.shippingCustom (varía por Uber/mensajería del momento)
 ];
 
-// Cajas — deluxe ahora es el diseño rediseñado para pared, costo fijo conocido (ya no requiere monto manual)
+// Cajas — deluxe es personalizado (tú decides el monto según la pieza/pedido)
 const PACKAGING = [
   { id: 'small', name: 'Pequeña', cost: 3000 },
   { id: 'medium', name: 'Mediana', cost: 4000 },
   { id: 'large', name: 'Grande', cost: 5000 },
-  { id: 'deluxe', name: 'Deluxe', cost: 4760 }
+  { id: 'deluxe', name: 'Deluxe (Personalizado)', cost: 0 }
 ];
 
-// Bolsas — deluxe sigue siendo personalizado (monto variable por pieza)
+// Bolsas — deluxe también es personalizado (monto variable por pieza)
 const PACKAGING_BAG = [
   { id: 'tela', name: 'Tela', cost: 500 },
   { id: 'small', name: 'Pequeña', cost: 3000 },
@@ -90,7 +90,6 @@ const SYSTEM_CONFIG = {
   BRUSH_COST: 1500,     // pinceles — placeholder, pendiente ajuste
   EXTRAS_FLAT_COST: 1000, // Imanes/Llaveros: ahora monto fijo (antes 2% del precio de venta)
   OTHER_SUPPLIES_RATE: 0.05, // toggle "Otro/Varios": +5% sobre la suma de insumos activos
-  DEFAULT_DELUXE_PACKAGING: 4760, // caja deluxe rediseñada para pared
   EVA_COST: 15000,      // Goma EVA — placeholder, pendiente ajuste
   VINYL_COST: 7000,     // Vinilo Autoadhesivo — placeholder, pendiente ajuste
   PLIKE_COST: 25000,    // Papel Plike — placeholder, pendiente ajuste

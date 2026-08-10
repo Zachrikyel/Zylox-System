@@ -151,7 +151,9 @@ function calculateQuote(params) {
   if (labor.paintToggle) costSupplies += SYSTEM_CONFIG.PAINT_COST;
   if (logistics.additionalsToggle) costSupplies += SYSTEM_CONFIG.EXTRAS_FLAT_COST;
   if (labor.brushToggle) costSupplies += SYSTEM_CONFIG.BRUSH_COST;
+  const suppliesBeforeOtherRate = costSupplies;
   if (labor.otherSuppliesToggle) costSupplies *= (1 + SYSTEM_CONFIG.OTHER_SUPPLIES_RATE);
+  const otherSuppliesExtra = costSupplies - suppliesBeforeOtherRate; // el peso real que agrega el +5%
   const materiaPrima = costMaterial + costSupplies;
 
   // Mano de obra (tiempo real de post-proceso/operador) — va a Costos Operativos, es tu pago por hora, no reposición
@@ -172,7 +174,7 @@ function calculateQuote(params) {
   // Reposición de Otros: empaque (caja o bolsa según tipo) + materiales de embalaje sueltos
   const packagingList = logistics.packagingType === 'bag' ? PACKAGING_BAG : PACKAGING;
   let packagingCost = 0;
-  if (logistics.packagingType === 'bag' && logistics.packagingSize === 'deluxe') {
+  if (logistics.packagingSize === 'deluxe') {
     packagingCost = logistics.packagingCustom || 0;
   } else {
     const pkg = packagingList.find(p => p.id === logistics.packagingSize);
@@ -266,6 +268,15 @@ function calculateQuote(params) {
       wear: costWear,
       material: costMaterial,
       supplies: costSupplies,
+      suppliesDetail: {
+        primer: labor.primerToggle ? SYSTEM_CONFIG.PRIMER_COST : 0,
+        lacquer: labor.lacquerToggle ? SYSTEM_CONFIG.LACQUER_COST : 0,
+        sanding: labor.sandingToggle ? SYSTEM_CONFIG.SANDING_COST : 0,
+        paint: labor.paintToggle ? SYSTEM_CONFIG.PAINT_COST : 0,
+        magnets: logistics.additionalsToggle ? SYSTEM_CONFIG.EXTRAS_FLAT_COST : 0,
+        brush: labor.brushToggle ? SYSTEM_CONFIG.BRUSH_COST : 0,
+        otherRate: labor.otherSuppliesToggle ? otherSuppliesExtra : 0
+      },
       labor: costLabor,
       packaging: packagingCost,
       packagingExtras,
