@@ -111,7 +111,7 @@ window.Formatters = {
 
 function calculateQuote(params) {
   const { config, print, labor, logistics, pricing } = params;
-  const { PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, COMPLEXITY_LEVELS, GATEWAYS, SYSTEM_CONFIG } = getConstants();
+  const { PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, COMPLEXITY_LEVELS, GATEWAYS, SYSTEM_CONFIG } = getConstants();
 
   const printer = PRINTERS.find(p => p.id === config.printer);
   const material = MATERIALS.find(m => m.id === config.material);
@@ -119,6 +119,9 @@ function calculateQuote(params) {
   const shipping = SHIPPING_OPTIONS.find(s => s.id === logistics.shipping);
   const complexityLevel = COMPLEXITY_LEVELS[labor.complexity];
   const gateway = GATEWAYS.find(g => g.id === pricing.gateway);
+
+  // Costo de envío real: 'urgente' usa el monto manual (Uber/mensajería del momento), el resto usa la tabla
+  const shippingCost = logistics.shipping === 'urgente' ? (logistics.shippingCustom || 0) : shipping.cost;
 
   // Tiempo de ocupación
   const totalPrintHours = print.printHours;
@@ -128,57 +131,72 @@ function calculateQuote(params) {
   const totalCoolHours = totalCoolMinutes / 60;
   const totalOccupancyHours = totalPrintHours + totalCoolHours;
 
-  // Costos duros
-  const costEnergy = ((printer.watts * totalPrintHours) + (printer.watts * 0.1 * totalCoolHours)) / 1000 * config.kwhPrice;
+  // Costos duros (energía + desgaste de máquina) — van a Costos Operativos, no a Materia Prima
+  let costEnergy = ((printer.watts * totalPrintHours) + (printer.watts * 0.1 * totalCoolHours)) / 1000 * config.kwhPrice;
+  if (config.fanToggle) costEnergy += SYSTEM_CONFIG.FAN_COST;
   const costWear = printer.wear * totalOccupancyHours;
-  let costMaterial = print.materialCost;
+
+  // Reposición de Materia Prima: todo lo que se consume 1:1 con la pieza y hay que volver a comprar.
+  // Incluye insumos de acabado (primer/laca/lija/pintura) y los del container "Insumos" (imanes/pinceles),
+  // con el toggle "Otro/Varios" aplicando +5% sobre la suma de insumos activos.
+  let costMaterial = print.materialCost; // PLA/PETG/etc, dinámico según gramos
   costMaterial *= nozzle.riskFactor;
   if (config.amsMode) {
     costMaterial *= material.amsRisk;
   }
-  const hardCosts = costEnergy + costWear + costMaterial;
+  let costSupplies = 0;
+  if (labor.primerToggle) costSupplies += SYSTEM_CONFIG.PRIMER_COST;
+  if (labor.lacquerToggle) costSupplies += SYSTEM_CONFIG.LACQUER_COST;
+  if (labor.sandingToggle) costSupplies += SYSTEM_CONFIG.SANDING_COST;
+  if (labor.paintToggle) costSupplies += SYSTEM_CONFIG.PAINT_COST;
+  if (logistics.additionalsToggle) costSupplies += SYSTEM_CONFIG.EXTRAS_FLAT_COST;
+  if (labor.brushToggle) costSupplies += SYSTEM_CONFIG.BRUSH_COST;
+  if (labor.otherSuppliesToggle) costSupplies *= (1 + SYSTEM_CONFIG.OTHER_SUPPLIES_RATE);
+  const materiaPrima = costMaterial + costSupplies;
 
-  // Costos blandos
+  // Mano de obra (tiempo real de post-proceso/operador) — va a Costos Operativos, es tu pago por hora, no reposición
   const postProcessHours = complexityLevel.postProcessMinutes / 60;
   const operatorHours = complexityLevel.operatorMinutes / 60;
   const totalLaborHours = postProcessHours + operatorHours;
   let costLabor = totalLaborHours * SYSTEM_CONFIG.HOURLY_LABOR_RATE;
   costLabor *= (1 + complexityLevel.failureRisk);
-  costLabor += complexityLevel.suppliesCost;
+  costLabor += complexityLevel.suppliesCost; // queda en 0 en todos los niveles, ver config.js
   if (config.amsMode) {
     costLabor *= (1 + SYSTEM_CONFIG.AMS_ADDITIONAL_RISK);
   }
-  if (labor.primerToggle) {
-    costLabor += SYSTEM_CONFIG.PRIMER_COST;
-  }
-  if (labor.lacquerToggle) {
-    costLabor += SYSTEM_CONFIG.LACQUER_COST;
-  }
-  const softCosts = costLabor;
 
-  // Logística
+  const hardCosts = costEnergy + costWear; // ya no incluye material, ese vive en materiaPrima
+  const softCosts = costLabor;
+  const costOperativo = hardCosts + softCosts; // energía + desgaste + mano de obra (comisión de pasarela se suma más abajo)
+
+  // Reposición de Otros: empaque (caja o bolsa según tipo) + materiales de embalaje sueltos
+  const packagingList = logistics.packagingType === 'bag' ? PACKAGING_BAG : PACKAGING;
   let packagingCost = 0;
-  if (logistics.packagingSize === 'deluxe') {
+  if (logistics.packagingType === 'bag' && logistics.packagingSize === 'deluxe') {
     packagingCost = logistics.packagingCustom || 0;
   } else {
-    const pkg = PACKAGING.find(p => p.id === logistics.packagingSize);
+    const pkg = packagingList.find(p => p.id === logistics.packagingSize);
     packagingCost = pkg ? pkg.cost : 0;
   }
-  const logisticsCosts = shipping.cost + packagingCost;
+  let packagingExtras = 0;
+  if (logistics.evaToggle) packagingExtras += SYSTEM_CONFIG.EVA_COST;
+  if (logistics.vinylToggle) packagingExtras += SYSTEM_CONFIG.VINYL_COST;
+  if (logistics.plikeToggle) packagingExtras += SYSTEM_CONFIG.PLIKE_COST;
+  if (logistics.bubbleToggle) packagingExtras += SYSTEM_CONFIG.BUBBLE_COST;
+  if (logistics.glueToggle) packagingExtras += SYSTEM_CONFIG.GLUE_COST;
+  packagingCost += packagingExtras;
+  const reposicionOtros = packagingCost; // envío queda aparte, es pass-through (ver logisticsCosts)
+  const logisticsCosts = shippingCost + packagingCost;
 
-  // Costo base preliminar (sin cargo de imanes/llaveros)
-  const baseCostPrelim = hardCosts + softCosts + logisticsCosts;
+  // Costo base
+  const baseCostPrelim = materiaPrima + hardCosts + softCosts + logisticsCosts;
   const marginDecimal = pricing.profitMargin / 100;
-  const sellPricePrelim = baseCostPrelim / (1 - marginDecimal);
 
-  // Cargo Adicional (imanes/llaveros): 2% sobre el precio de venta estimado
-  let extrasCost = 0;
-  if (logistics.additionalsToggle) {
-    extrasCost = sellPricePrelim * SYSTEM_CONFIG.EXTRAS_CHARGE_RATE;
-  }
+  // Cargo Adicional (imanes/llaveros) — informativo: ya está incluido dentro de materiaPrima/costSupplies arriba,
+  // esta variable NO se vuelve a sumar, solo sirve para mostrar el desglose en el resumen.
+  const extrasCost = logistics.additionalsToggle ? SYSTEM_CONFIG.EXTRAS_FLAT_COST : 0;
 
-  // Costo base final
-  const baseCost = baseCostPrelim + extrasCost;
+  const baseCost = baseCostPrelim;
 
   // Precio de venta
   const sellPrice = baseCost / (1 - marginDecimal);
@@ -207,6 +225,18 @@ function calculateQuote(params) {
   const customCharge = pricing.additionalCharge || 0;
   const totalToCharge = finalPrice + customCharge;
 
+  // ============================================
+  // LAS 4 ETIQUETAS (para mostrar al cerrar una venta)
+  // Precio a Cobrar = Materia Prima + Reposición Otros + Costo Operativo + Comisión + Ganancia Real
+  // Ganancia Real = lo que queda DESPUÉS de restar materia prima, otros, energía+desgaste+mano de obra
+  // y comisión de pasarela. Solo se muestran 4 etiquetas: las otras 3 quedan absorbidas dentro
+  // de "no es ganancia" en el resumen, no se exponen como categoría aparte.
+  // ============================================
+  const etiquetaPrecioACobrar = totalToCharge;
+  const etiquetaMateriaPrima = materiaPrima;
+  const etiquetaReposicionOtros = reposicionOtros + shippingCost; // empaque + envío (pass-through)
+  const etiquetaGananciaReal = totalToCharge - etiquetaMateriaPrima - etiquetaReposicionOtros - costOperativo - feeEstimate;
+
   return {
     finalPrice,
     hardCosts,
@@ -222,14 +252,25 @@ function calculateQuote(params) {
     totalPrintHours,
     totalCoolHours,
     totalOccupancyHours,
+    materiaPrima,
+    reposicionOtros,
+    costOperativo,
+    etiquetas: {
+      precioACobrar: etiquetaPrecioACobrar,
+      materiaPrima: etiquetaMateriaPrima,
+      reposicionOtros: etiquetaReposicionOtros,
+      gananciaReal: etiquetaGananciaReal
+    },
     breakdown: {
       energy: costEnergy,
       wear: costWear,
       material: costMaterial,
+      supplies: costSupplies,
       labor: costLabor,
       packaging: packagingCost,
+      packagingExtras,
       extras: extrasCost,
-      shipping: shipping.cost
+      shipping: shippingCost
     }
   };
 }
@@ -244,11 +285,10 @@ function recalculateVariant(originalResults, newShipping, newPackaging, profitMa
   const baseCostPrelim = productionCosts + newLogisticsCosts;
 
   const marginDecimal = profitMargin / 100;
-  const sellPricePrelim = baseCostPrelim / (1 - marginDecimal);
 
   let extrasCost = 0;
   if (additionalsToggle) {
-    extrasCost = sellPricePrelim * SYSTEM_CONFIG.EXTRAS_CHARGE_RATE;
+    extrasCost = SYSTEM_CONFIG.EXTRAS_FLAT_COST;
   }
   const newBaseCost = baseCostPrelim + extrasCost;
   const newSellPrice = newBaseCost / (1 - marginDecimal);

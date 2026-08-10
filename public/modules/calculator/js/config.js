@@ -22,21 +22,35 @@ const MATERIALS = [
 const SHIPPING_OPTIONS = [
   { id: 'pickup', name: 'Recogida', cost: 0, icon: '🏪' },
   { id: 'local', name: 'Local', cost: 15000, icon: '📦' },
-  { id: 'national', name: 'Deluxe', cost: 0, icon: '🚚' }
+  { id: 'nacional', name: 'Nacional', cost: 20000, icon: '🚚' },
+  { id: 'urgente', name: 'Urgente', cost: 0, icon: '⚡' } // costo real va en logistics.shippingCustom (varía por Uber/mensajería del momento)
 ];
 
+// Cajas — deluxe ahora es el diseño rediseñado para pared, costo fijo conocido (ya no requiere monto manual)
 const PACKAGING = [
   { id: 'small', name: 'Pequeña', cost: 3000 },
   { id: 'medium', name: 'Mediana', cost: 4000 },
   { id: 'large', name: 'Grande', cost: 5000 },
-  { id: 'deluxe', name: 'Deluxe Personalizado', cost: 0 }
+  { id: 'deluxe', name: 'Deluxe', cost: 4760 }
+];
+
+// Bolsas — deluxe sigue siendo personalizado (monto variable por pieza)
+const PACKAGING_BAG = [
+  { id: 'tela', name: 'Tela', cost: 500 },
+  { id: 'small', name: 'Pequeña', cost: 3000 },
+  { id: 'medium', name: 'Mediana', cost: 4000 },
+  { id: 'large', name: 'Grande', cost: 5000 },
+  { id: 'deluxe', name: 'Deluxe (Personalizado)', cost: 0 }
 ];
 
 const COMPLEXITY_LEVELS = {
-  simple: { name: 'Simple (Solo Impresión)', postProcessMinutes: 5, operatorMinutes: 0, failureRisk: 0.02, suppliesCost: 200, description: 'Solo sacar de impresora y revisar' },
-  easy: { name: 'Fácil', postProcessMinutes: 47, operatorMinutes: 5, failureRisk: 0.10, suppliesCost: 1767, description: 'Limpieza básica y lijado ligero' },
+  // suppliesCost queda en 0 en todos los niveles: los insumos reales (primer, laca, lija, pintura)
+  // ahora se cobran aparte vía toggles (ver PRIMER_COST/LACQUER_COST/SANDING_COST/PAINT_COST) para
+  // no mezclar tiempo de mano de obra con reposición de materia prima.
+  simple: { name: 'Simple (Solo Impresión)', postProcessMinutes: 5, operatorMinutes: 0, failureRisk: 0.02, suppliesCost: 0, description: 'Solo sacar de impresora y revisar' },
+  easy: { name: 'Fácil', postProcessMinutes: 47, operatorMinutes: 5, failureRisk: 0.10, suppliesCost: 0, description: 'Limpieza básica y lijado ligero' },
   medium: { name: 'Media', postProcessMinutes: 120, operatorMinutes: 5, failureRisk: 0.20, suppliesCost: 0, description: 'Lijado, acabados básicos' },
-  hard: { name: 'Difícil', postProcessMinutes: 180, operatorMinutes: 10, failureRisk: 0.40, suppliesCost: 7000, description: 'Múltiples acabados, ensamblaje' }
+  hard: { name: 'Difícil', postProcessMinutes: 180, operatorMinutes: 10, failureRisk: 0.40, suppliesCost: 0, description: 'Múltiples acabados, ensamblaje' }
 };
 
 const GATEWAYS = [
@@ -51,8 +65,8 @@ const VARIANT_CONFIGS = [
   { shipping: 'local', packaging: 'small', name: 'Domicilio Local + Empaque Pequeño' },
   { shipping: 'local', packaging: 'medium', name: 'Domicilio Local + Empaque Mediano' },
   { shipping: 'local', packaging: 'large', name: 'Domicilio Local + Empaque Grande' },
-  { shipping: 'national', packaging: 'medium', name: 'Domicilio Nacional + Empaque Mediano' },
-  { shipping: 'national', packaging: 'large', name: 'Domicilio Nacional + Empaque Grande' }
+  { shipping: 'nacional', packaging: 'medium', name: 'Domicilio Nacional + Empaque Mediano' },
+  { shipping: 'nacional', packaging: 'large', name: 'Domicilio Nacional + Empaque Grande' }
 ];
 
 const MASTER_VARIANT_CONFIGS = [];
@@ -68,9 +82,20 @@ const SYSTEM_CONFIG = {
   DEFAULT_MARGIN: 30,
   HOURLY_LABOR_RATE: 20000,
   AMS_ADDITIONAL_RISK: 0.02,
-  PRIMER_COST: 6900,
-  LACQUER_COST: 5600,
-  EXTRAS_CHARGE_RATE: 0.02, // Imanes/llaveros: % sobre precio de venta estimado (antes se aplicaba mal sobre el costo de empaque)
+  PRIMER_COST: 7000,   // redondeado (real: lata 55.000 / 8 guardianes ≈ 6.900)
+  LACQUER_COST: 6000,  // redondeado (real: lata ~44.500 / 8 guardianes ≈ 5.600)
+  SANDING_COST: 1000,  // lija: ~4 pedazos de una hoja de 2000/8
+  PAINT_COST: 7500,    // redondeado (real: ~65% de un tarro de 60ml a 11.000 ≈ 7.150)
+  FAN_COST: 500,        // toggle manual — ver logistics.fanToggle / config.fanToggle
+  BRUSH_COST: 1500,     // pinceles — placeholder, pendiente ajuste
+  EXTRAS_FLAT_COST: 1000, // Imanes/Llaveros: ahora monto fijo (antes 2% del precio de venta)
+  OTHER_SUPPLIES_RATE: 0.05, // toggle "Otro/Varios": +5% sobre la suma de insumos activos
+  DEFAULT_DELUXE_PACKAGING: 4760, // caja deluxe rediseñada para pared
+  EVA_COST: 15000,      // Goma EVA — placeholder, pendiente ajuste
+  VINYL_COST: 7000,     // Vinilo Autoadhesivo — placeholder, pendiente ajuste
+  PLIKE_COST: 25000,    // Papel Plike — placeholder, pendiente ajuste
+  BUBBLE_COST: 1000,    // Papel Burbuja — placeholder, pendiente ajuste
+  GLUE_COST: 200,       // Colbón — placeholder, pendiente ajuste
   WOMPI_RATE: 0.0265,
   WOMPI_IVA: 0.19
 };
@@ -83,7 +108,7 @@ const AUTHORIZED_USERS = [
 
 // EXPOSICIÓN GLOBAL DE CONSTANTES (CRÍTICO)
 window.SICMA_CONSTANTS = {
-  PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING,
+  PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG,
   COMPLEXITY_LEVELS, GATEWAYS, VARIANT_CONFIGS, MASTER_VARIANT_CONFIGS,
   PACKAGE_CONFIG, SYSTEM_CONFIG, AUTHORIZED_USERS
 };
