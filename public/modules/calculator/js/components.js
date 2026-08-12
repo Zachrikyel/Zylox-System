@@ -197,8 +197,8 @@ function Calculator() {
     window.calculatorState = {
       step: 1,
       config: { kwhPrice: 920, printer: 'p1s', nozzle: 0.4, material: 'pla', materialCostPerKg: 75000, amsMode: false, fanToggle: false },
-      print: { printHours: 0, materialCost: 0, coolMinutes: 18, isPiece: 'single', plateCount: 1 },
-      labor: { complexity: 'simple', primerToggle: false, lacquerToggle: false, sandingToggle: false, paintToggle: false, brushToggle: false, otherSuppliesToggle: false },
+      print: { printHours: 0, materialCost: 0, coolMinutes: 18, isPiece: 'single', plateCount: 1, supportsNeeded: false, supportsFragility: 'none', supportsAmount: 'none' },
+      labor: { complexity: 'simple', primerToggle: false, lacquerToggle: false, sandingToggle: false, paintToggle: false, brushToggle: false, superBonderToggle: false, otherSuppliesToggle: false },
       logistics: { shipping: 'pickup', packagingType: 'box', packagingSize: 'small', packagingCustom: 0, shippingCustom: 0, additionalsToggle: false, isFreeShipping: false, evaToggle: false, vinylToggle: false, plikeToggle: false, bubbleToggle: false, glueToggle: false },
       pricing: { gateway: 'wompi', profitMargin: 25, additionalCharge: 0 },
       results: null
@@ -314,6 +314,35 @@ function Calculator() {
           <div class="bg-zinc-800 rounded-xl p-4 mb-3"><div class="text-xs text-zinc-500 mb-2">Valor desde Bambu Studio (COP)</div><input type="text" inputmode="decimal" value="${state.print.materialCost || ''}" oninput="window.calculatorState.print.materialCost = parseFloat(this.value) || 0" onblur="handleInputBlur('materialCost', 'print', parseFloat(this.value) || 0)" class="w-full bg-transparent text-right text-3xl font-bold text-cyan-400 focus:outline-none" placeholder="0" /></div>
           <div class="bg-zinc-800/50 rounded-lg p-3 text-xs text-zinc-500">💡 Usa la cantidad total que muestra Bambu Studio</div>
         </div>
+        <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
+          <label class="block text-sm text-zinc-400 mb-3">Soportes</label>
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <button onclick="updatePrint('supportsNeeded', false); updatePrint('supportsFragility', 'none'); updatePrint('supportsAmount', 'none');" class="py-3 rounded-lg border-2 transition ${!state.print.supportsNeeded ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-zinc-700 text-zinc-400'}">No</button>
+            <button onclick="updatePrint('supportsNeeded', true)" class="py-3 rounded-lg border-2 transition ${state.print.supportsNeeded ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-zinc-700 text-zinc-400'}">Sí</button>
+          </div>
+          ${state.print.supportsNeeded ? `
+          <div class="space-y-4 animate-fade-in">
+            <div class="p-3 bg-zinc-800 rounded-lg">
+              <div class="flex items-center justify-between mb-1"><div class="text-sm font-semibold">Delicado</div><button onclick="updatePrint('supportsFragility', '${state.print.supportsFragility === 'none' ? 'some' : 'none'}')" class="w-12 h-6 rounded-full transition relative shrink-0 ${state.print.supportsFragility !== 'none' ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.print.supportsFragility !== 'none' ? 'translate-x-6' : ''}"></div></button></div>
+              <div class="text-xs text-zinc-500 mb-2">Riesgo de romperse al retirarlos</div>
+              ${state.print.supportsFragility !== 'none' ? `
+              <div class="grid grid-cols-2 gap-2 animate-fade-in">
+                <button onclick="updatePrint('supportsFragility', 'some')" class="py-2 rounded-lg border text-xs font-semibold transition ${state.print.supportsFragility === 'some' ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-zinc-700 text-zinc-400'}">Algunos <span class="block text-[10px] opacity-70">+5 pts</span></button>
+                <button onclick="updatePrint('supportsFragility', 'all')" class="py-2 rounded-lg border text-xs font-semibold transition ${state.print.supportsFragility === 'all' ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-zinc-700 text-zinc-400'}">Todos <span class="block text-[10px] opacity-70">+15 pts</span></button>
+              </div>` : ''}
+            </div>
+            <div class="p-3 bg-zinc-800 rounded-lg">
+              <div class="flex items-center justify-between mb-1"><div class="text-sm font-semibold">Cantidad</div><button onclick="updatePrint('supportsAmount', '${state.print.supportsAmount === 'none' ? 'few' : 'none'}')" class="w-12 h-6 rounded-full transition relative shrink-0 ${state.print.supportsAmount !== 'none' ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.print.supportsAmount !== 'none' ? 'translate-x-6' : ''}"></div></button></div>
+              <div class="text-xs text-zinc-500 mb-2">Consumen material extra</div>
+              ${state.print.supportsAmount !== 'none' ? `
+              <div class="grid grid-cols-2 gap-2 animate-fade-in">
+                <button onclick="updatePrint('supportsAmount', 'few')" class="py-2 rounded-lg border text-xs font-semibold transition ${state.print.supportsAmount === 'few' ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-zinc-700 text-zinc-400'}">Pocos <span class="block text-[10px] opacity-70">+5%</span></button>
+                <button onclick="updatePrint('supportsAmount', 'many')" class="py-2 rounded-lg border text-xs font-semibold transition ${state.print.supportsAmount === 'many' ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-zinc-700 text-zinc-400'}">Muchos <span class="block text-[10px] opacity-70">+10%</span></button>
+              </div>` : ''}
+            </div>
+            <p class="text-xs text-zinc-500">💡 Delicado y Cantidad son independientes — puedes activar uno, otro o ambos</p>
+          </div>` : ''}
+        </div>
       </div>
     `;
   }
@@ -321,6 +350,10 @@ function Calculator() {
   else if (state.step === 3) {
     const step12Base = window.Calculations.calculateStep12Base(state.config, state.print);
     const HOURLY_RATE = window.SICMA_CONSTANTS.SYSTEM_CONFIG.HOURLY_LABOR_RATE;
+    const { SUPPORTS_FRAGILITY_SOME_RATE, SUPPORTS_FRAGILITY_ALL_RATE } = window.SICMA_CONSTANTS.SYSTEM_CONFIG;
+    let fragilityBonus = 0;
+    if (state.print.supportsFragility === 'some') fragilityBonus = SUPPORTS_FRAGILITY_SOME_RATE;
+    if (state.print.supportsFragility === 'all') fragilityBonus = SUPPORTS_FRAGILITY_ALL_RATE;
     // --- PRESETS DE PRODUCTO ---
     const PRODUCT_PRESETS = {
       guardianes: {
@@ -344,7 +377,10 @@ function Calculator() {
         plikeToggle: false,
         bubbleToggle: true,
         glueToggle: true,
-        isFreeShipping: true
+        isFreeShipping: true,
+        supportsNeeded: false,
+        supportsFragility: 'none',
+        supportsAmount: 'none'
       },
       pokeballs: {
         name: 'Pokeballs',
@@ -356,6 +392,7 @@ function Calculator() {
         sandingToggle: true,
         paintToggle: true,
         brushToggle: true,
+        superBonderToggle: true,
         otherSuppliesToggle: false,
         additionalsToggle: true,
         shipping: 'local',
@@ -367,7 +404,10 @@ function Calculator() {
         plikeToggle: false,
         bubbleToggle: true,
         glueToggle: true,
-        isFreeShipping: true
+        isFreeShipping: true,
+        supportsNeeded: true,
+        supportsFragility: 'some',
+        supportsAmount: 'few'
       },
       llaveros: {
         name: 'Llaveros',
@@ -379,6 +419,7 @@ function Calculator() {
         sandingToggle: false,
         paintToggle: false,
         brushToggle: false,
+        superBonderToggle: true,
         otherSuppliesToggle: true,
         additionalsToggle: true,
         shipping: 'pickup',
@@ -390,7 +431,10 @@ function Calculator() {
         plikeToggle: false,
         bubbleToggle: false,
         glueToggle: false,
-        isFreeShipping: false
+        isFreeShipping: false,
+        supportsNeeded: true,
+        supportsFragility: 'none',
+        supportsAmount: 'few'
       }
     };
 
@@ -400,6 +444,10 @@ function Calculator() {
       if (!preset) return;
       // Marcar preset activo
       state._activePreset = presetKey;
+      // Soportes (step 2)
+      state.print.supportsNeeded = !!preset.supportsNeeded;
+      state.print.supportsFragility = preset.supportsFragility || 'none';
+      state.print.supportsAmount = preset.supportsAmount || 'none';
       // Complejidad + acabados (step 3)
       state.labor.complexity = preset.complexity;
       state.labor.primerToggle = preset.primerToggle;
@@ -407,6 +455,7 @@ function Calculator() {
       state.labor.sandingToggle = !!preset.sandingToggle;
       state.labor.paintToggle = !!preset.paintToggle;
       state.labor.brushToggle = !!preset.brushToggle;
+      state.labor.superBonderToggle = !!preset.superBonderToggle;
       state.labor.otherSuppliesToggle = !!preset.otherSuppliesToggle;
       // Margen según complejidad
       const margins = { simple: 25, easy: 30, medium: 35, hard: 40 };
@@ -495,7 +544,7 @@ function Calculator() {
         <!-- MANUAL PANEL -->
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
           <label class="block text-sm text-zinc-400 mb-4">Nivel de Complejidad</label>
-          <div class="space-y-3">${Object.entries(COMPLEXITY_LEVELS).map(([key, level]) => { const isSelected = state.labor.complexity === key; const laborCost = ((level.postProcessMinutes + level.operatorMinutes) / 60 * HOURLY_RATE); const failureRiskCost = step12Base * level.failureRisk; const estimatedCost = (level.suppliesCost + laborCost + failureRiskCost).toFixed(0); return `<button onclick="updateLabor('complexity', '${key}')" class="w-full p-4 rounded-xl border-2 transition text-left flex items-center justify-between ${isSelected ? 'border-cyan-500 bg-cyan-500/10' : 'border-zinc-700 bg-zinc-800'}"><span class="text-lg font-bold text-white">${level.name}</span><span class="text-sm text-cyan-400 font-mono">${formatCurrency(estimatedCost)}</span></button>`; }).join('')}</div>
+          <div class="space-y-3">${Object.entries(COMPLEXITY_LEVELS).map(([key, level]) => { const isSelected = state.labor.complexity === key; const laborCost = ((level.postProcessMinutes + level.operatorMinutes) / 60 * HOURLY_RATE); const failureRiskCost = step12Base * (level.failureRisk + fragilityBonus); const estimatedCost = (level.suppliesCost + laborCost + failureRiskCost).toFixed(0); return `<button onclick="updateLabor('complexity', '${key}')" class="w-full p-4 rounded-xl border-2 transition text-left flex items-center justify-between ${isSelected ? 'border-cyan-500 bg-cyan-500/10' : 'border-zinc-700 bg-zinc-800'}"><span class="text-lg font-bold text-white">${level.name}</span><span class="text-sm text-cyan-400 font-mono">${formatCurrency(estimatedCost)}</span></button>`; }).join('')}</div>
           ${state.config.amsMode ? `<div class="mt-4 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg text-xs text-cyan-400">✓ Modo AMS activo: +2% adicional aplicado automáticamente</div>` : ''}
         </div>
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
@@ -507,6 +556,7 @@ function Calculator() {
             <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Pintura</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$7.500</span><button onclick="updateLabor('paintToggle', ${!state.labor.paintToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.paintToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.paintToggle ? 'translate-x-5' : ''}"></div></button></div></div>
             <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Imanes/Llaveros</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$1.000</span><button onclick="updateLogistics('additionalsToggle', ${!state.logistics.additionalsToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.logistics.additionalsToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.logistics.additionalsToggle ? 'translate-x-5' : ''}"></div></button></div></div>
             <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Pinceles</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$1.500</span><button onclick="updateLabor('brushToggle', ${!state.labor.brushToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.brushToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.brushToggle ? 'translate-x-5' : ''}"></div></button></div></div>
+            <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">SuperBonder</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$200</span><button onclick="updateLabor('superBonderToggle', ${!state.labor.superBonderToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.superBonderToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.superBonderToggle ? 'translate-x-5' : ''}"></div></button></div></div>
             <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2 border border-amber-500/30"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Otro/Varios</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-amber-400">+5%</span><button onclick="updateLabor('otherSuppliesToggle', ${!state.labor.otherSuppliesToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.otherSuppliesToggle ? 'bg-amber-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.otherSuppliesToggle ? 'translate-x-5' : ''}"></div></button></div></div>
           </div>
           <p class="text-xs text-zinc-500 mt-3">💡 Activa solo los que aplican. "Otro/Varios" suma 5% sobre el total de insumos activos (imprevistos, repetición de una capa, etc).</p>
@@ -601,8 +651,8 @@ function Calculator() {
             <div class="flex justify-between"><span class="text-zinc-400">⏱️ Tiempo Total</span><span class="font-mono text-white font-bold">${r.totalProductionTime.toFixed(1)}h</span></div>
             <div class="flex justify-between"><span class="text-zinc-400">⚡ Luz${state.config.fanToggle ? ' (incl. ventilador)' : ''}</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.energy)}</span></div>
             <div class="flex justify-between"><span class="text-zinc-400">🔧 Máquina</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.wear)}</span></div>
-            <div class="flex justify-between"><span class="text-zinc-400">📦 Material PLA</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.material)}</span></div>
-            ${r.breakdown.failureRisk > 0 ? `<div class="flex justify-between"><span class="text-zinc-400">⚠️ Margen de error (impresión)</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.failureRisk)}</span></div>` : ''}
+            <div class="flex justify-between"><span class="text-zinc-400">📦 Material PLA${state.print.supportsAmount !== 'none' ? ' (incl. soportes extra)' : ''}</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.material)}</span></div>
+            <div class="flex justify-between"><span class="text-zinc-400">🎲 Prima de Riesgo (margen de error)</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.failureRiskPremium)}</span></div>
             <div class="pt-2 mt-1 border-t border-zinc-800"><span class="text-zinc-400 text-xs uppercase font-bold">🎨 Insumos</span></div>
             ${r.breakdown.suppliesDetail.primer > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Primer</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.primer)}</span></div>` : ''}
             ${r.breakdown.suppliesDetail.lacquer > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Laca</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.lacquer)}</span></div>` : ''}
@@ -610,11 +660,14 @@ function Calculator() {
             ${r.breakdown.suppliesDetail.paint > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Pintura</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.paint)}</span></div>` : ''}
             ${r.breakdown.suppliesDetail.magnets > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Imanes/Llaveros</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.magnets)}</span></div>` : ''}
             ${r.breakdown.suppliesDetail.brush > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Pinceles</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.brush)}</span></div>` : ''}
+            ${r.breakdown.suppliesDetail.superBonder > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">SuperBonder</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.superBonder)}</span></div>` : ''}
             ${r.breakdown.suppliesDetail.otherRate > 0 ? `<div class="flex justify-between pl-3"><span class="text-amber-400">Otro/Varios (+5%)</span><span class="font-mono text-amber-400">${formatCurrency(r.breakdown.suppliesDetail.otherRate)}</span></div>` : ''}
             <div class="pt-2 mt-1 border-t border-zinc-800"></div>
             <div class="flex justify-between"><span class="text-zinc-400">📦 Empaque</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.packaging)}</span></div>
             ${r.breakdown.packagingExtras > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Materiales de Embalaje</span><span class="font-mono text-white">${formatCurrency(r.breakdown.packagingExtras)}</span></div>` : ''}
             ${r.breakdown.shipping > 0 ? `<div class="flex justify-between"><span class="text-zinc-400">🚚 Envío</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.shipping)}</span></div>` : ''}
+            <div class="flex justify-between"><span class="text-zinc-400">👤 Mano de Obra</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.labor)}</span></div>
+            ${r.feeEstimate > 0 ? `<div class="flex justify-between"><span class="text-zinc-400">💳 Comisión Pasarela</span><span class="font-mono text-white font-bold">${formatCurrency(r.feeEstimate)}</span></div>` : ''}
           </div>
         </div>
         <div class="space-y-3 pt-4">
