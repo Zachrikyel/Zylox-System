@@ -319,6 +319,8 @@ function Calculator() {
   }
 
   else if (state.step === 3) {
+    const step12Base = window.Calculations.calculateStep12Base(state.config, state.print);
+    const HOURLY_RATE = window.SICMA_CONSTANTS.SYSTEM_CONFIG.HOURLY_LABOR_RATE;
     // --- PRESETS DE PRODUCTO ---
     const PRODUCT_PRESETS = {
       guardianes: {
@@ -493,7 +495,7 @@ function Calculator() {
         <!-- MANUAL PANEL -->
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
           <label class="block text-sm text-zinc-400 mb-4">Nivel de Complejidad</label>
-          <div class="space-y-3">${Object.entries(COMPLEXITY_LEVELS).map(([key, level]) => { const isSelected = state.labor.complexity === key; const estimatedCost = (level.suppliesCost + ((level.postProcessMinutes + level.operatorMinutes) / 60 * 20000) * (1 + level.failureRisk)).toFixed(0); return `<button onclick="updateLabor('complexity', '${key}')" class="w-full p-4 rounded-xl border-2 transition text-left flex items-center justify-between ${isSelected ? 'border-cyan-500 bg-cyan-500/10' : 'border-zinc-700 bg-zinc-800'}"><span class="text-lg font-bold text-white">${level.name}</span><span class="text-sm text-cyan-400 font-mono">${formatCurrency(estimatedCost)}</span></button>`; }).join('')}</div>
+          <div class="space-y-3">${Object.entries(COMPLEXITY_LEVELS).map(([key, level]) => { const isSelected = state.labor.complexity === key; const laborCost = ((level.postProcessMinutes + level.operatorMinutes) / 60 * HOURLY_RATE); const failureRiskCost = step12Base * level.failureRisk; const estimatedCost = (level.suppliesCost + laborCost + failureRiskCost).toFixed(0); return `<button onclick="updateLabor('complexity', '${key}')" class="w-full p-4 rounded-xl border-2 transition text-left flex items-center justify-between ${isSelected ? 'border-cyan-500 bg-cyan-500/10' : 'border-zinc-700 bg-zinc-800'}"><span class="text-lg font-bold text-white">${level.name}</span><span class="text-sm text-cyan-400 font-mono">${formatCurrency(estimatedCost)}</span></button>`; }).join('')}</div>
           ${state.config.amsMode ? `<div class="mt-4 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg text-xs text-cyan-400">✓ Modo AMS activo: +2% adicional aplicado automáticamente</div>` : ''}
         </div>
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
@@ -600,6 +602,7 @@ function Calculator() {
             <div class="flex justify-between"><span class="text-zinc-400">⚡ Luz${state.config.fanToggle ? ' (incl. ventilador)' : ''}</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.energy)}</span></div>
             <div class="flex justify-between"><span class="text-zinc-400">🔧 Máquina</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.wear)}</span></div>
             <div class="flex justify-between"><span class="text-zinc-400">📦 Material PLA</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.material)}</span></div>
+            ${r.breakdown.failureRisk > 0 ? `<div class="flex justify-between"><span class="text-zinc-400">⚠️ Margen de error (impresión)</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.failureRisk)}</span></div>` : ''}
             <div class="pt-2 mt-1 border-t border-zinc-800"><span class="text-zinc-400 text-xs uppercase font-bold">🎨 Insumos</span></div>
             ${r.breakdown.suppliesDetail.primer > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Primer</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.primer)}</span></div>` : ''}
             ${r.breakdown.suppliesDetail.lacquer > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Laca</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.lacquer)}</span></div>` : ''}

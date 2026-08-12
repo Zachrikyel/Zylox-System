@@ -109,6 +109,30 @@ window.Formatters = {
 // CALCULATIONS
 // ============================================
 
+/** Costos de impresión (pasos 1 y 2): material + energía + desgaste */
+function calculateStep12Base(config, print) {
+  const { PRINTERS, NOZZLES, MATERIALS, SYSTEM_CONFIG } = getConstants();
+  const printer = PRINTERS.find(p => p.id === config.printer);
+  const material = MATERIALS.find(m => m.id === config.material);
+  const nozzle = NOZZLES.find(n => n.size === config.nozzle);
+
+  const totalPrintHours = print.printHours || 0;
+  const coolMinutes = print.coolMinutes || material.coolMinutes;
+  const plateMultiplier = print.isPiece === 'multi' ? (Number(print.plateCount) || 1) : 1;
+  const totalCoolHours = (coolMinutes * plateMultiplier) / 60;
+  const totalOccupancyHours = totalPrintHours + totalCoolHours;
+
+  let costEnergy = ((printer.watts * totalPrintHours) + (printer.watts * 0.1 * totalCoolHours)) / 1000 * config.kwhPrice;
+  if (config.fanToggle) costEnergy += SYSTEM_CONFIG.FAN_COST;
+  const costWear = printer.wear * totalOccupancyHours;
+
+  let costMaterial = print.materialCost || 0;
+  costMaterial *= nozzle.riskFactor;
+  if (config.amsMode) costMaterial *= material.amsRisk;
+
+  return costMaterial + costEnergy + costWear;
+}
+
 function calculateQuote(params) {
   const { config, print, labor, logistics, pricing } = params;
   const { PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, COMPLEXITY_LEVELS, GATEWAYS, SYSTEM_CONFIG } = getConstants();
@@ -161,15 +185,17 @@ function calculateQuote(params) {
   const operatorHours = complexityLevel.operatorMinutes / 60;
   const totalLaborHours = postProcessHours + operatorHours;
   let costLabor = totalLaborHours * SYSTEM_CONFIG.HOURLY_LABOR_RATE;
-  costLabor *= (1 + complexityLevel.failureRisk);
   costLabor += complexityLevel.suppliesCost; // queda en 0 en todos los niveles, ver config.js
   if (config.amsMode) {
     costLabor *= (1 + SYSTEM_CONFIG.AMS_ADDITIONAL_RISK);
   }
 
+  const step12Base = costMaterial + costEnergy + costWear;
+  const failureRiskPremium = step12Base * complexityLevel.failureRisk;
+
   const hardCosts = costEnergy + costWear; // ya no incluye material, ese vive en materiaPrima
   const softCosts = costLabor;
-  const costOperativo = hardCosts + softCosts; // energía + desgaste + mano de obra (comisión de pasarela se suma más abajo)
+  const costOperativo = hardCosts + softCosts + failureRiskPremium;
 
   // Reposición de Otros: empaque (caja o bolsa según tipo) + materiales de embalaje sueltos
   const packagingList = logistics.packagingType === 'bag' ? PACKAGING_BAG : PACKAGING;
@@ -191,7 +217,7 @@ function calculateQuote(params) {
   const logisticsCosts = shippingCost + packagingCost;
 
   // Costo base
-  const baseCostPrelim = materiaPrima + hardCosts + softCosts + logisticsCosts;
+  const baseCostPrelim = materiaPrima + hardCosts + softCosts + logisticsCosts + failureRiskPremium;
   const marginDecimal = pricing.profitMargin / 100;
 
   // Cargo Adicional (imanes/llaveros) — informativo: ya está incluido dentro de materiaPrima/costSupplies arriba,
@@ -278,6 +304,7 @@ function calculateQuote(params) {
         otherRate: labor.otherSuppliesToggle ? otherSuppliesExtra : 0
       },
       labor: costLabor,
+      failureRisk: failureRiskPremium,
       packaging: packagingCost,
       packagingExtras,
       extras: extrasCost,
@@ -524,6 +551,7 @@ function calculatePackagePriceOption(baseCost, margin) {
 }
 
 window.Calculations = {
+  calculateStep12Base,
   calculateQuote,
   recalculateVariant,
   calculatePackage,
