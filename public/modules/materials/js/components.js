@@ -99,15 +99,19 @@ window.Components.InventoryScreen = (path, items) => {
         listHtml = `<ul class="card-stack">`;
         listHtml += items.map((item, index) => {
             const isFinal = currentDepth === 3;
-            // Determinar si tiene alerta de stock bajo
-            const hasAlert = item.current_quantity <= (item.min_stock_alert || 5);
+            const tracksStock = item.unit_measure != null;
+            const unitLabel = item.unit_measure || '';
+            const hasAlert = tracksStock && item.current_quantity <= (item.min_stock_alert ?? 5);
+            const qtyDisplay = item.current_quantity > 0
+                ? `${item.current_quantity}${unitLabel ? ' ' + unitLabel : ''}`
+                : '';
 
             return `
             <li class="stack-item no-select" 
                 style="--i: ${index}; --border-color: ${config.color};"
                 oncontextmenu="return false;"
-                onpointerdown="window.gestureStart(${item.id}, event)"
-                onpointerup="window.gestureEnd(${item.id}, event)"
+                onpointerdown="window.gestureStart('${item.id}', event)"
+                onpointerup="window.gestureEnd('${item.id}', event)"
                 onpointermove="window.gestureMove(event)"
                 onpointerleave="window.gestureCancel()"
                 onpointercancel="window.gestureCancel()"
@@ -119,7 +123,7 @@ window.Components.InventoryScreen = (path, items) => {
                 <div class="w-full pointer-events-none">
                     <div class="flex justify-between items-start">
                         <h3 class="text-white font-bold text-lg leading-tight">${item.name}</h3>
-                        ${item.current_quantity > 0 ? `<span class="font-mono text-xs bg-zinc-800 px-2 py-1 rounded text-white">${item.current_quantity}</span>` : ''}
+                        ${qtyDisplay ? `<span class="font-mono text-xs bg-zinc-800 px-2 py-1 rounded text-white">${qtyDisplay}</span>` : ''}
                     </div>
                     <p class="font-mono text-xs text-zinc-500 mt-1">${item.sku || '---'}</p>
                     <div class="mt-2 flex gap-2">
@@ -127,7 +131,12 @@ window.Components.InventoryScreen = (path, items) => {
                         ${hasAlert ? '<span class="item-badge text-red-500 border-red-500"><i class="fas fa-exclamation-triangle mr-1"></i>BAJO</span>' : ''}
                     </div>
                 </div>
-                ${!isFinal ? '<i class="fas fa-chevron-right text-zinc-600"></i>' : ''}
+                <button type="button" class="edit-item-btn pointer-events-auto shrink-0 p-2 text-zinc-500 hover:text-white transition-colors"
+                    onclick="event.stopPropagation(); window.openEditModal('${item.id}')"
+                    title="Editar">
+                    <i class="fas fa-pen text-sm"></i>
+                </button>
+                ${!isFinal ? '<i class="fas fa-chevron-right text-zinc-600 shrink-0"></i>' : ''}
             </li>
             `;
         }).join('');

@@ -121,18 +121,19 @@
                             <div class="qty-control">
                                 <button type="button" class="qty-btn"
                                     onclick="window.adjustVal('input_qty', -1)">-</button>
-                                <input type="number" id="input_qty" class="qty-input" value="0" min="0">
+                                <input type="number" id="input_qty" class="qty-input" value="0" min="0" step="any">
                                 <button type="button" class="qty-btn"
                                     onclick="window.adjustVal('input_qty', 1)">+</button>
                             </div>
                         </div>
                         <div>
-                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 block">Alerta</label>
+                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 block">Alerta mínima</label>
+                            <p class="text-[9px] text-zinc-600 mb-1">Misma unidad que el stock (g, u, kg…)</p>
                             <div class="qty-control">
                                 <button type="button" class="qty-btn"
                                     onclick="window.adjustVal('input_alert', -1)">-</button>
                                 <input type="number" id="input_alert" class="qty-input text-yellow-500" value="5"
-                                    min="0">
+                                    min="0" step="any">
                                 <button type="button" class="qty-btn"
                                     onclick="window.adjustVal('input_alert', 1)">+</button>
                             </div>
@@ -200,17 +201,18 @@
                             <div class="qty-control">
                                 <button type="button" class="qty-btn"
                                     onclick="window.adjustVal('edit_qty', -1)">-</button>
-                                <input type="number" id="edit_qty" class="qty-input" min="0">
+                                <input type="number" id="edit_qty" class="qty-input" min="0" step="any">
                                 <button type="button" class="qty-btn"
                                     onclick="window.adjustVal('edit_qty', 1)">+</button>
                             </div>
                         </div>
                         <div>
-                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 block">Alerta</label>
+                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 block">Alerta mínima</label>
+                            <p class="text-[9px] text-zinc-600 mb-1">Misma unidad que el stock (g, u, kg…)</p>
                             <div class="qty-control">
                                 <button type="button" class="qty-btn"
                                     onclick="window.adjustVal('edit_alert', -1)">-</button>
-                                <input type="number" id="edit_alert" class="qty-input text-yellow-500" min="0">
+                                <input type="number" id="edit_alert" class="qty-input text-yellow-500" min="0" step="any">
                                 <button type="button" class="qty-btn"
                                     onclick="window.adjustVal('edit_alert', 1)">+</button>
                             </div>

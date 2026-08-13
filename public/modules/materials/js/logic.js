@@ -36,7 +36,7 @@ window.loadMaterialStats = async function () {
         const { count } = await window.supabase.from('materials').select('*', { count: 'exact', head: true }).is('parent_id', null);
         const { data } = await window.supabase.from('materials').select('current_quantity, min_stock_alert');
         let alerts = 0;
-        if (data) alerts = data.filter(m => m.current_quantity <= (m.min_stock_alert || 5)).length;
+        if (data) alerts = data.filter(m => m.unit_measure != null && m.current_quantity <= (m.min_stock_alert ?? 5)).length;
         window.appState.stats = { totalArmarios: count || 0, alerts: alerts };
     } catch (e) { console.error(e); }
 };
@@ -88,6 +88,7 @@ window.renderInventoryUI = function () {
 
 /* --- 2. SISTEMA DE NAVEGACIÓN (DRILL DOWN) --- */
 window.navigateDown = (id) => {
+    id = String(id);
     // 🛑 BLOQUEO DE SEGURIDAD
     if (isNavigating) return;
 
@@ -97,7 +98,7 @@ window.navigateDown = (id) => {
         return;
     }
 
-    const item = window.inventoryState.items.find(i => i.id === id);
+    const item = window.inventoryState.items.find(i => String(i.id) === id);
     if (!item) return;
 
     // 🔥 ACTIVAR BLOQUEO
@@ -137,6 +138,7 @@ window.getCurrentContextName = () => window.getCurrentContext().name;
 /* --- 3. SISTEMA DE GESTOS (TACTICAL HOLD) --- */
 
 window.gestureStart = (id, event) => {
+    id = String(id);
     // 🛑 Bloqueos de seguridad
     if (isNavigating) return;
     if (event.button === 2) return; // Click derecho
@@ -181,6 +183,7 @@ window.gestureMove = (event) => {
 };
 
 window.gestureEnd = (id, event) => {
+    id = String(id);
     // Prevenir eventos duplicados del navegador
     if (event && event.cancelable) event.preventDefault();
 
@@ -307,7 +310,7 @@ window.submitCreation = async () => {
         if (currentDepth >= 2) {
             const getVal = (id) => document.getElementById(id).value;
             payload.current_quantity = parseFloat(getVal('input_qty')) || 0;
-            payload.min_stock_alert = parseInt(getVal('input_alert')) || 5;
+            payload.min_stock_alert = parseFloat(getVal('input_alert')) || 5;
             payload.unit_measure = getVal('input_unit');
             payload.cost_per_unit = parseFloat(getVal('input_cost')) || 0;
         }
@@ -321,7 +324,8 @@ window.submitCreation = async () => {
 /* --- 5. EDICIÓN --- */
 window.openEditModal = (id) => {
     try {
-        const item = window.inventoryState.items.find(i => i.id === id);
+        id = String(id);
+        const item = window.inventoryState.items.find(i => String(i.id) === id);
         if (!item) return;
         const modal = document.getElementById('edit-modal');
         const currentDepth = window.inventoryState.path.length - 1;
@@ -374,23 +378,43 @@ window.updateEditSkuPreview = () => {
     document.getElementById('edit-sku-preview').innerText = parts.join('-');
 };
 
+window.cascadeSkuUpdate = async function (parentId, oldSku, newSku) {
+    const { data: children } = await window.supabase.from('materials').select('id, sku').eq('parent_id', parentId);
+    for (const child of children || []) {
+        if (!child.sku || !child.sku.startsWith(oldSku + '-')) continue;
+        const suffix = child.sku.slice(oldSku.length);
+        const childNewSku = newSku + suffix;
+        await window.supabase.from('materials').update({ sku: childNewSku }).eq('id', child.id);
+        await window.cascadeSkuUpdate(child.id, child.sku, childNewSku);
+    }
+};
+
 window.submitEdit = async () => {
     try {
         const id = document.getElementById('edit_id').value;
         const name = document.getElementById('edit_name').value;
         const newSku = document.getElementById('edit-sku-preview').innerText;
-        const qty = parseFloat(document.getElementById('edit_qty').value) || 0;
-        const alert = parseFloat(document.getElementById('edit_alert').value) || 5;
-        const unit = document.getElementById('edit_unit').value;
-        const cost = parseFloat(document.getElementById('edit_cost').value) || 0;
+        const oldSku = document.getElementById('edit_old_sku').value;
+        const currentDepth = window.inventoryState.path.length - 1;
+
+        const payload = { name, sku: newSku };
+
+        if (currentDepth >= 2) {
+            payload.current_quantity = parseFloat(document.getElementById('edit_qty').value) || 0;
+            payload.min_stock_alert = parseFloat(document.getElementById('edit_alert').value) || 5;
+            payload.unit_measure = document.getElementById('edit_unit').value;
+            payload.cost_per_unit = parseFloat(document.getElementById('edit_cost').value) || 0;
+        }
 
         if (window.closeEditModal) window.closeEditModal();
 
-        const { error } = await window.supabase.rpc('update_material_cascade', {
-            p_id: id, p_name: name, p_new_sku: newSku,
-            p_qty: qty, p_alert: alert, p_unit: unit, p_cost: cost
-        });
+        const { error } = await window.supabase.from('materials').update(payload).eq('id', id);
         if (error) throw error;
+
+        if (oldSku && newSku && oldSku !== newSku) {
+            await window.cascadeSkuUpdate(id, oldSku, newSku);
+        }
+
         await window.loadInventoryData();
     } catch (e) { console.error(e); alert("Error: " + e.message); }
 };
