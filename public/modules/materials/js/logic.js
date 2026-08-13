@@ -303,8 +303,6 @@ window.submitCreation = async () => {
         const ctx = window.getCurrentContext();
         const currentDepth = window.inventoryState.path.length - 1;
 
-        if (window.closeModal) window.closeModal();
-
         const payload = { name, sku, parent_id: ctx.id, current_quantity: 0 };
 
         if (currentDepth >= 2) {
@@ -314,6 +312,8 @@ window.submitCreation = async () => {
             payload.unit_measure = getVal('input_unit');
             payload.cost_per_unit = parseFloat(getVal('input_cost')) || 0;
         }
+
+        if (window.closeModal) window.closeModal();
 
         await window.supabase.from('materials').insert([payload]);
         await window.loadInventoryData();
