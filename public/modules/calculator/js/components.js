@@ -207,7 +207,7 @@ function Calculator() {
   const state = window.calculatorState;
 
   // HELPERS ORIGINALES
-  window.updateConfig = (key, value) => { state.config[key] = value; if (key === 'material') { const m = MATERIALS.find(x => x.id === value); state.print.coolMinutes = m.coolMinutes; } renderCalculatorWithScroll(); };
+  window.updateConfig = (key, value) => { state.config[key] = value; if (key === 'material') { const m = MATERIALS.find(x => x.id === value); state.print.coolMinutes = m.coolMinutes; state.print.colorSlots = [{ materialId: null, grams: 0 }]; state.print.materialCost = 0; } renderCalculatorWithScroll(); };
   window.updatePrint = (key, value) => { state.print[key] = value; renderCalculatorWithScroll(); };
   window.updateLabor = (key, value) => { state.labor[key] = value; if (key === 'complexity') { const margins = { simple: 25, easy: 30, medium: 35, hard: 40 }; if (margins[value]) state.pricing.profitMargin = margins[value]; } renderCalculatorWithScroll(); };
   window.updateLogistics = (key, value) => { state.logistics[key] = value; renderCalculatorWithScroll(); };
@@ -622,9 +622,24 @@ function Calculator() {
                 <div>• Complejidad: <span class="text-white font-semibold">${complexityLabel}</span></div>
                 <div>• Primer: <span class="${preset.primerToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.primerToggle ? 'Sí' : 'No'}</span></div>
                 <div>• Laca: <span class="${preset.lacquerToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.lacquerToggle ? 'Sí' : 'No'}</span></div>
-                <div>• Envío: <span class="text-white font-semibold">${preset.shipping === 'pickup' ? 'Recogida' : preset.shipping === 'local' ? 'Local' : 'Nacional'}</span></div>
-                <div>• Caja: <span class="text-white font-semibold">${preset.packagingSize === 'deluxe' ? 'Custom $' + preset.packagingCustom : 'Grande $5.000'}</span></div>
+                <div>• Lijado: <span class="${preset.sandingToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.sandingToggle ? 'Sí' : 'No'}</span></div>
+                <div>• Pintura: <span class="${preset.paintToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.paintToggle ? 'Sí' : 'No'}</span></div>
+                <div>• Pinceles: <span class="${preset.brushToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.brushToggle ? 'Sí' : 'No'}</span></div>
+                <div>• Otros Insumos: <span class="${preset.otherSuppliesToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.otherSuppliesToggle ? 'Sí' : 'No'}</span></div>
+                <div>• Super Glue: <span class="${preset.superglueToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.superglueToggle ? 'Sí' : 'No'}</span></div>
+                <div>• Soportes: <span class="${preset.supportsNeeded ? 'text-green-400' : 'text-zinc-600'}">${preset.supportsNeeded ? 'Sí' : 'No'}</span></div>
+                ${preset.supportsNeeded ? `<div>• Fragilidad: <span class="text-white font-semibold">${preset.supportsFragility}</span></div><div>• Cantidad Sop: <span class="text-white font-semibold">${preset.supportsAmount}</span></div>` : ''}
+                <div>• Envío: <span class="text-white font-semibold">${preset.shipping === 'pickup' ? 'Recogida' : preset.shipping === 'local' ? 'Local' : preset.shipping === 'nacional' ? 'Nacional' : 'Urgente'}</span></div>
+                <div>• Embalaje: <span class="text-white font-semibold">${preset.packagingType === 'box' ? '📦 Caja' : '🎒 Bolsa'} ${preset.packagingSize}</span></div>
+                ${preset.packagingSize === 'deluxe' ? `<div>• Costo Custom: <span class="text-white font-semibold">$${preset.packagingCustom}</span></div>` : ''}
                 <div>• Envío Gratis: <span class="${preset.isFreeShipping ? 'text-green-400' : 'text-zinc-600'}">${preset.isFreeShipping ? 'Sí' : 'No'}</span></div>
+                <div>• Adicionales: <span class="${preset.additionalsToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.additionalsToggle ? 'Sí' : 'No'}</span></div>
+                <div>• Goma EVA: <span class="${preset.evaToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.evaToggle ? 'Sí' : 'No'}</span></div>
+                <div>• Vinilo: <span class="${preset.vinylToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.vinylToggle ? 'Sí' : 'No'}</span></div>
+                <div>• Plike: <span class="${preset.plikeToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.plikeToggle ? 'Sí' : 'No'}</span></div>
+                <div>• Burbuja: <span class="${preset.bubbleToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.bubbleToggle ? 'Sí' : 'No'}</span></div>
+                <div>• Colbón: <span class="${preset.glueToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.glueToggle ? 'Sí' : 'No'}</span></div>
+                <div>• Vinipel: <span class="${preset.vinipelToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.vinipelToggle ? 'Sí' : 'No'}</span></div>
               </div>
             </button>`;
           }).join('')}
