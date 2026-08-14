@@ -98,6 +98,8 @@ const SYSTEM_CONFIG = {
   PLIKE_COST: 25000,    // Papel Plike — placeholder, pendiente ajuste
   BUBBLE_COST: 1000,    // Papel Burbuja — placeholder, pendiente ajuste
   GLUE_COST: 200,       // Colbón — placeholder, pendiente ajuste
+  SUPERGLUE_COST: 200,  // Superbonder (reparación de pieza) — placeholder, pendiente ajuste
+  VINIPEL_COST: 300,    // Vinipel — placeholder, pendiente ajuste
   SUPPORTS_FRAGILITY_SOME_RATE: 0.05, // Fragilidad "Algunos": +5 puntos al margen de error — placeholder, pendiente ajuste
   SUPPORTS_FRAGILITY_ALL_RATE: 0.15,  // Fragilidad "Todos": +15 puntos al margen de error — placeholder, pendiente ajuste
   SUPPORTS_AMOUNT_FEW_RATE: 0.05,     // Cantidad "Pocos": +5% al costo de material — placeholder, pendiente ajuste

@@ -160,6 +160,7 @@ function calculateQuote(params) {
   if (labor.paintToggle) costSupplies += SYSTEM_CONFIG.PAINT_COST;
   if (logistics.additionalsToggle) costSupplies += SYSTEM_CONFIG.EXTRAS_FLAT_COST;
   if (labor.brushToggle) costSupplies += SYSTEM_CONFIG.BRUSH_COST;
+  if (labor.superglueToggle) costSupplies += SYSTEM_CONFIG.SUPERGLUE_COST;
   const suppliesBeforeOtherRate = costSupplies;
   if (labor.otherSuppliesToggle) costSupplies *= (1 + SYSTEM_CONFIG.OTHER_SUPPLIES_RATE);
   const otherSuppliesExtra = costSupplies - suppliesBeforeOtherRate; // el peso real que agrega el +5%
@@ -190,6 +191,7 @@ function calculateQuote(params) {
   if (logistics.plikeToggle) packagingExtras += SYSTEM_CONFIG.PLIKE_COST;
   if (logistics.bubbleToggle) packagingExtras += SYSTEM_CONFIG.BUBBLE_COST;
   if (logistics.glueToggle) packagingExtras += SYSTEM_CONFIG.GLUE_COST;
+  if (logistics.vinipelToggle) packagingExtras += SYSTEM_CONFIG.VINIPEL_COST;
   packagingCost += packagingExtras;
   const reposicionOtros = packagingCost; // envío queda aparte, es pass-through (ver logisticsCosts)
   const logisticsCosts = shippingCost + packagingCost;
@@ -280,6 +282,7 @@ function calculateQuote(params) {
         paint: labor.paintToggle ? SYSTEM_CONFIG.PAINT_COST : 0,
         magnets: logistics.additionalsToggle ? SYSTEM_CONFIG.EXTRAS_FLAT_COST : 0,
         brush: labor.brushToggle ? SYSTEM_CONFIG.BRUSH_COST : 0,
+        superglue: labor.superglueToggle ? SYSTEM_CONFIG.SUPERGLUE_COST : 0,
         otherRate: labor.otherSuppliesToggle ? otherSuppliesExtra : 0
       },
       labor: costLabor,
