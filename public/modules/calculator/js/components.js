@@ -190,14 +190,14 @@ window.loadDashboardStats = async () => {
 function Calculator() {
   const Icons = getIcons();
   const { formatCurrency, parseDecimalHours, parseTimeInput } = window.Formatters;
-  const { PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, PACKAGING_ROOTS, COMPLEXITY_LEVELS, GATEWAYS } = window.SICMA_CONSTANTS;
+  const { PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, PACKAGING_ROOTS, FILAMENT_ROOTS, COMPLEXITY_LEVELS, GATEWAYS } = window.SICMA_CONSTANTS;
 
   // ESTADO INICIAL ORIGINAL
   if (!window.calculatorState) {
     window.calculatorState = {
       step: 1,
       config: { kwhPrice: 920, printer: 'p1s', nozzle: 0.4, material: 'pla', materialCostPerKg: 75000, amsMode: false, fanToggle: false },
-      print: { printHours: 0, materialCost: 0, coolMinutes: 18, isPiece: 'single', plateCount: 1, supportsNeeded: false, supportsFragility: 'none', supportsAmount: 'none' },
+      print: { printHours: 0, materialCost: 0, coolMinutes: 18, isPiece: 'single', plateCount: 1, supportsNeeded: false, supportsFragility: 'none', supportsAmount: 'none', colorSlots: [{ materialId: null, grams: 0 }] },
       labor: { complexity: 'simple', primerToggle: false, lacquerToggle: false, sandingToggle: false, paintToggle: false, brushToggle: false, otherSuppliesToggle: false, superglueToggle: false },
       logistics: { shipping: 'pickup', packagingType: 'box', packagingSize: 'small', packagingCustom: 0, packagingMaterialId: null, packagingCost: 0, packagingIsCustom: false, shippingCustom: 0, additionalsToggle: false, isFreeShipping: false, evaToggle: false, vinylToggle: false, plikeToggle: false, bubbleToggle: false, glueToggle: false, vinipelToggle: false },
       pricing: { gateway: 'wompi', profitMargin: 25, additionalCharge: 0 },
@@ -211,6 +211,47 @@ function Calculator() {
   window.updatePrint = (key, value) => { state.print[key] = value; renderCalculatorWithScroll(); };
   window.updateLabor = (key, value) => { state.labor[key] = value; if (key === 'complexity') { const margins = { simple: 25, easy: 30, medium: 35, hard: 40 }; if (margins[value]) state.pricing.profitMargin = margins[value]; } renderCalculatorWithScroll(); };
   window.updateLogistics = (key, value) => { state.logistics[key] = value; renderCalculatorWithScroll(); };
+
+  // Recalcula print.materialCost sumando gramos*costo/kg de cada slot con color+gramos válidos.
+  // No toca calculateQuote — sigue leyendo materialCost como un solo número, igual que siempre.
+  const recomputeMaterialCost = () => {
+    const rootId = FILAMENT_ROOTS[state.config.material];
+    const cached = state._materialOptions && state._materialOptions[rootId];
+    const items = cached && !cached.error ? cached.items : [];
+    let total = 0;
+    state.print.colorSlots.forEach(slot => {
+      if (!slot.materialId || !slot.grams) return;
+      const item = items.find(m => String(m.id) === String(slot.materialId));
+      if (!item) return;
+      total += (Number(slot.grams) || 0) * (Number(item.cost_per_unit) || 0) / 1000;
+    });
+    state.print.materialCost = total;
+  };
+
+  window.selectSlotMaterial = (index, value) => {
+    state.print.colorSlots[index].materialId = value ? Number(value) : null;
+    recomputeMaterialCost();
+    renderCalculatorWithScroll();
+  };
+
+  window.updateSlotGrams = (index, value) => {
+    state.print.colorSlots[index].grams = parseFloat(value) || 0;
+    recomputeMaterialCost();
+    renderCalculatorWithScroll();
+  };
+
+  window.addColorSlot = () => {
+    if (state.print.colorSlots.length >= 4) return;
+    state.print.colorSlots.push({ materialId: null, grams: 0 });
+    renderCalculatorWithScroll();
+  };
+
+  window.removeColorSlot = (index) => {
+    if (index === 0) return; // el primero es obligatorio, no se quita
+    state.print.colorSlots.splice(index, 1);
+    recomputeMaterialCost();
+    renderCalculatorWithScroll();
+  };
 
   // Cambiar entre Caja/Bolsa: limpia la selección de material previa (son inventarios distintos)
   window.selectPackagingType = (type) => {
@@ -233,7 +274,7 @@ function Calculator() {
       return;
     }
     const rootId = PACKAGING_ROOTS[state.logistics.packagingType];
-    const cached = state._packagingOptions && state._packagingOptions[rootId];
+    const cached = state._materialOptions && state._materialOptions[rootId];
     const item = cached && !cached.error ? cached.items.find(p => String(p.id) === String(value)) : null;
     if (!item) return;
     state.logistics.packagingMaterialId = item.id;
@@ -320,6 +361,9 @@ function Calculator() {
 
   else if (state.step === 2) {
     const selectedMaterial = MATERIALS.find(m => m.id === state.config.material);
+    const filamentRootId = FILAMENT_ROOTS[state.config.material];
+    const cachedFilament = state._materialOptions && state._materialOptions[filamentRootId];
+    if (!cachedFilament) loadMaterialOptions(filamentRootId);
     content = `
       <div class="space-y-5 animate-fade-in">
         <h2 class="text-xl font-black text-cyan-400 uppercase italic">Datos de Impresión</h2>
@@ -340,9 +384,27 @@ function Calculator() {
           <div class="pt-4 border-t border-zinc-800"><label class="block text-sm text-zinc-400 mb-2 flex items-center gap-2">${Icons.Snowflake()} Enfriamiento Base (min)</label><input type="text" inputmode="numeric" value="${state.print.coolMinutes || selectedMaterial.coolMinutes}" oninput="debouncedUpdate('coolMinutes', 'print', parseInt(this.value) || 0)" onblur="handleInputBlur('coolMinutes', 'print', parseInt(this.value) || 0)" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-lg font-bold text-white focus:outline-none focus:border-cyan-500" /><p class="text-xs text-zinc-500 mt-2">${state.print.isPiece === 'multi' ? `Se multiplicará por ${state.print.plateCount || 1} placas = ${(state.print.coolMinutes || selectedMaterial.coolMinutes) * (Number(state.print.plateCount) || 1)} min total` : `Recomendado ${selectedMaterial.name}: ${selectedMaterial.coolMinutes} min`}</p></div>
         </div>
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
-          <label class="block text-sm text-zinc-400 mb-4 flex items-center gap-2">${Icons.Package()} Cantidad Material</label>
-          <div class="bg-zinc-800 rounded-xl p-4 mb-3"><div class="text-xs text-zinc-500 mb-2">Valor desde Bambu Studio (COP)</div><input type="text" inputmode="decimal" value="${state.print.materialCost || ''}" oninput="window.calculatorState.print.materialCost = parseFloat(this.value) || 0" onblur="handleInputBlur('materialCost', 'print', parseFloat(this.value) || 0)" class="w-full bg-transparent text-right text-3xl font-bold text-cyan-400 focus:outline-none" placeholder="0" /></div>
-          <div class="bg-zinc-800/50 rounded-lg p-3 text-xs text-zinc-500">💡 Usa la cantidad total que muestra Bambu Studio</div>
+          <label class="block text-sm text-zinc-400 mb-4 flex items-center gap-2">${Icons.Package()} Colores y Material</label>
+          ${!cachedFilament ? `
+          <div class="p-4 bg-zinc-800 rounded-lg text-sm text-zinc-500 flex items-center gap-2">⏳ Cargando colores de tu inventario...</div>` : cachedFilament.error ? `
+          <div class="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">⚠️ No pude conectar con tu inventario.</div>` : cachedFilament.items.length === 0 ? `
+          <div class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm text-amber-400">⚠️ Todavía no tienes colores cargados para ${selectedMaterial ? selectedMaterial.name : 'este material'} en tu inventario.</div>` : `
+          <div class="space-y-3">
+            ${state.print.colorSlots.map((slot, i) => `
+            <div class="flex gap-2 items-center">
+              <select onchange="selectSlotMaterial(${i}, this.value)" class="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-cyan-500">
+                <option value="">Selecciona...</option>
+                ${cachedFilament.items.map(m => `<option value="${m.id}" ${slot.materialId === m.id ? 'selected' : ''}>${m.display_name}${m.current_quantity <= 0 ? ' ⚠️' : ''}</option>`).join('')}
+              </select>
+              <input type="text" inputmode="decimal" value="${slot.grams || ''}" oninput="window.calculatorState.print.colorSlots[${i}].grams = parseFloat(this.value) || 0" onblur="updateSlotGrams(${i}, this.value)" class="w-24 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-cyan-400 font-bold text-right focus:outline-none focus:border-cyan-500" placeholder="g" />
+              ${i > 0 ? `<button onclick="removeColorSlot(${i})" class="text-zinc-500 hover:text-red-400 px-2 text-lg">✕</button>` : `<div class="w-7"></div>`}
+            </div>`).join('')}
+          </div>
+          ${state.print.colorSlots.length < 4 ? `<button onclick="addColorSlot()" class="mt-3 text-sm text-cyan-400 font-semibold">+ Agregar Color</button>` : ''}
+          <div class="mt-4 pt-4 border-t border-zinc-800 space-y-1">
+            ${state.print.colorSlots.filter(s => s.materialId && s.grams > 0).map(s => { const item = cachedFilament.items.find(m => m.id === s.materialId); return `<div class="flex justify-between text-xs"><span class="text-zinc-500">${item ? item.display_name : '?'}</span><span class="text-zinc-300 font-mono">${s.grams}g</span></div>`; }).join('')}
+            <div class="flex justify-between text-sm pt-1"><span class="text-white font-bold">Coste Total</span><span class="text-cyan-400 font-mono font-bold">${state.print.colorSlots.reduce((a, s) => a + (Number(s.grams) || 0), 0).toFixed(2)}g · ${formatCurrency(state.print.materialCost)}</span></div>
+          </div>`}
         </div>
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
           <label class="block text-sm text-zinc-400 mb-3">Soportes</label>
@@ -602,8 +664,8 @@ function Calculator() {
 
   else if (state.step === 4) {
     const packagingRootId = PACKAGING_ROOTS[state.logistics.packagingType];
-    const cachedPackaging = state._packagingOptions && state._packagingOptions[packagingRootId];
-    if (!cachedPackaging) loadPackagingOptions(packagingRootId); // dispara el fetch, no bloquea este render
+    const cachedPackaging = state._materialOptions && state._materialOptions[packagingRootId];
+    if (!cachedPackaging) loadMaterialOptions(packagingRootId); // dispara el fetch, no bloquea este render
     content = `
       <div class="space-y-5 animate-fade-in">
         <h2 class="text-xl font-black text-cyan-400 uppercase italic">Logística</h2>

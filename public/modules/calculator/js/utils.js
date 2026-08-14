@@ -564,15 +564,16 @@ async function getProducts() {
   }
 }
 
-// Trae las opciones reales de empaque desde tu inventario (materials), vía la función
-// get_leaf_materials de Supabase. Cachea por root_id para no repetir la consulta.
-async function loadPackagingOptions(rootId) {
-  window.calculatorState._packagingOptions = window.calculatorState._packagingOptions || {};
-  if (window.calculatorState._packagingOptions[rootId]) return; // ya en caché, incl. arrays vacíos ya resueltos
+// Trae opciones reales de tu inventario (materials) vía la función get_leaf_materials de
+// Supabase — sirve tanto para empaque (Caja/Bolsa) como para colores de filamento
+// (PLA/PETG/ABS/TPU). Cachea por root_id para no repetir la consulta.
+async function loadMaterialOptions(rootId) {
+  window.calculatorState._materialOptions = window.calculatorState._materialOptions || {};
+  if (window.calculatorState._materialOptions[rootId]) return; // ya en caché, incl. arrays vacíos ya resueltos
 
   const supabase = getSupabase();
   if (!supabase) {
-    window.calculatorState._packagingOptions[rootId] = { error: true, items: [] };
+    window.calculatorState._materialOptions[rootId] = { error: true, items: [] };
     if (window.renderModule) window.renderModule();
     return;
   }
@@ -580,10 +581,10 @@ async function loadPackagingOptions(rootId) {
   try {
     const { data, error } = await supabase.rpc('get_leaf_materials', { root_id: rootId });
     if (error) throw error;
-    window.calculatorState._packagingOptions[rootId] = { error: false, items: data || [] };
+    window.calculatorState._materialOptions[rootId] = { error: false, items: data || [] };
   } catch (e) {
-    console.error('❌ Error cargando opciones de empaque desde inventario:', e);
-    window.calculatorState._packagingOptions[rootId] = { error: true, items: [] };
+    console.error('❌ Error cargando opciones desde inventario:', e);
+    window.calculatorState._materialOptions[rootId] = { error: true, items: [] };
   }
   if (window.renderModule) window.renderModule();
 }

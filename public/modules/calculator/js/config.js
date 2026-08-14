@@ -22,6 +22,9 @@ const MATERIALS = [
 // IDs reales en tu tabla materials (Embalaje > Caja=8, Embalaje > Bolsa=9)
 const PACKAGING_ROOTS = { box: 8, bag: 9 };
 
+// IDs reales en tu tabla materials (Filamento > PLA/PETG/ABS/TPU)
+const FILAMENT_ROOTS = { pla: 4, petg: 13, abs: 20, tpu: 19 };
+
 const SHIPPING_OPTIONS = [
   { id: 'pickup', name: 'Recogida', cost: 0, icon: '🏪' },
   { id: 'local', name: 'Local', cost: 15000, icon: '📦' },
@@ -116,7 +119,7 @@ const AUTHORIZED_USERS = [
 
 // EXPOSICIÓN GLOBAL DE CONSTANTES (CRÍTICO)
 window.SICMA_CONSTANTS = {
-  PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, PACKAGING_ROOTS,
+  PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, PACKAGING_ROOTS, FILAMENT_ROOTS,
   COMPLEXITY_LEVELS, GATEWAYS, VARIANT_CONFIGS, MASTER_VARIANT_CONFIGS,
   PACKAGE_CONFIG, SYSTEM_CONFIG, AUTHORIZED_USERS
 };
