@@ -190,7 +190,7 @@ window.loadDashboardStats = async () => {
 function Calculator() {
   const Icons = getIcons();
   const { formatCurrency, parseDecimalHours, parseTimeInput } = window.Formatters;
-  const { PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, COMPLEXITY_LEVELS, GATEWAYS } = window.SICMA_CONSTANTS;
+  const { PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, PACKAGING_ROOTS, COMPLEXITY_LEVELS, GATEWAYS } = window.SICMA_CONSTANTS;
 
   // ESTADO INICIAL ORIGINAL
   if (!window.calculatorState) {
@@ -198,8 +198,8 @@ function Calculator() {
       step: 1,
       config: { kwhPrice: 920, printer: 'p1s', nozzle: 0.4, material: 'pla', materialCostPerKg: 75000, amsMode: false, fanToggle: false },
       print: { printHours: 0, materialCost: 0, coolMinutes: 18, isPiece: 'single', plateCount: 1, supportsNeeded: false, supportsFragility: 'none', supportsAmount: 'none' },
-      labor: { complexity: 'simple', primerToggle: false, lacquerToggle: false, sandingToggle: false, paintToggle: false, brushToggle: false, superBonderToggle: false, otherSuppliesToggle: false },
-      logistics: { shipping: 'pickup', packagingType: 'box', packagingSize: 'small', packagingCustom: 0, shippingCustom: 0, additionalsToggle: false, isFreeShipping: false, evaToggle: false, vinylToggle: false, plikeToggle: false, bubbleToggle: false, glueToggle: false },
+      labor: { complexity: 'simple', primerToggle: false, lacquerToggle: false, sandingToggle: false, paintToggle: false, brushToggle: false, otherSuppliesToggle: false },
+      logistics: { shipping: 'pickup', packagingType: 'box', packagingSize: 'small', packagingCustom: 0, packagingMaterialId: null, packagingCost: 0, shippingCustom: 0, additionalsToggle: false, isFreeShipping: false, evaToggle: false, vinylToggle: false, plikeToggle: false, bubbleToggle: false, glueToggle: false },
       pricing: { gateway: 'wompi', profitMargin: 25, additionalCharge: 0 },
       results: null
     };
@@ -211,6 +211,33 @@ function Calculator() {
   window.updatePrint = (key, value) => { state.print[key] = value; renderCalculatorWithScroll(); };
   window.updateLabor = (key, value) => { state.labor[key] = value; if (key === 'complexity') { const margins = { simple: 25, easy: 30, medium: 35, hard: 40 }; if (margins[value]) state.pricing.profitMargin = margins[value]; } renderCalculatorWithScroll(); };
   window.updateLogistics = (key, value) => { state.logistics[key] = value; renderCalculatorWithScroll(); };
+
+  // Cambiar entre Caja/Bolsa: limpia la selección de material previa (son inventarios distintos)
+  window.selectPackagingType = (type) => {
+    state.logistics.packagingType = type;
+    state.logistics.packagingMaterialId = null;
+    state.logistics.packagingCost = 0;
+    state.logistics.packagingCustom = 0;
+    renderCalculatorWithScroll();
+  };
+
+  // Elegir un ítem real del select: guarda el id de materials Y su precio juntos.
+  // "custom" (o vacío) = modo Personalizado, deja el costo en manual.
+  window.selectPackagingMaterial = (value) => {
+    if (!value || value === 'custom') {
+      state.logistics.packagingMaterialId = null;
+      state.logistics.packagingCost = state.logistics.packagingCustom || 0;
+      renderCalculatorWithScroll();
+      return;
+    }
+    const rootId = PACKAGING_ROOTS[state.logistics.packagingType];
+    const cached = state._packagingOptions && state._packagingOptions[rootId];
+    const item = cached && !cached.error ? cached.items.find(p => String(p.id) === String(value)) : null;
+    if (!item) return;
+    state.logistics.packagingMaterialId = item.id;
+    state.logistics.packagingCost = Number(item.cost_per_unit) || 0;
+    renderCalculatorWithScroll();
+  };
   window.updatePricing = (key, value) => { state.pricing[key] = value; renderCalculatorWithScroll(); };
 
   window.updateTimePreview = (val) => {
@@ -238,7 +265,7 @@ function Calculator() {
     }
     if (state.step === 4) {
       if (state.logistics.shipping === 'urgente' && !state.logistics.shippingCustom) return showNotification('Falta costo de envío', 'warning');
-      if (state.logistics.packagingSize === 'deluxe' && !state.logistics.packagingCustom) return showNotification('Falta costo de empaque', 'warning');
+      if (!state.logistics.packagingMaterialId && !state.logistics.packagingCost) return showNotification('Falta seleccionar el empaque', 'warning');
     }
     if (state.step === 5) {
       state.results = window.Calculations.calculateQuote({ config: state.config, print: state.print, labor: state.labor, logistics: state.logistics, pricing: state.pricing });
@@ -348,12 +375,6 @@ function Calculator() {
   }
 
   else if (state.step === 3) {
-    const step12Base = window.Calculations.calculateStep12Base(state.config, state.print);
-    const HOURLY_RATE = window.SICMA_CONSTANTS.SYSTEM_CONFIG.HOURLY_LABOR_RATE;
-    const { SUPPORTS_FRAGILITY_SOME_RATE, SUPPORTS_FRAGILITY_ALL_RATE } = window.SICMA_CONSTANTS.SYSTEM_CONFIG;
-    let fragilityBonus = 0;
-    if (state.print.supportsFragility === 'some') fragilityBonus = SUPPORTS_FRAGILITY_SOME_RATE;
-    if (state.print.supportsFragility === 'all') fragilityBonus = SUPPORTS_FRAGILITY_ALL_RATE;
     // --- PRESETS DE PRODUCTO ---
     const PRODUCT_PRESETS = {
       guardianes: {
@@ -392,7 +413,6 @@ function Calculator() {
         sandingToggle: true,
         paintToggle: true,
         brushToggle: true,
-        superBonderToggle: true,
         otherSuppliesToggle: false,
         additionalsToggle: true,
         shipping: 'local',
@@ -419,7 +439,6 @@ function Calculator() {
         sandingToggle: false,
         paintToggle: false,
         brushToggle: false,
-        superBonderToggle: true,
         otherSuppliesToggle: true,
         additionalsToggle: true,
         shipping: 'pickup',
@@ -455,7 +474,6 @@ function Calculator() {
       state.labor.sandingToggle = !!preset.sandingToggle;
       state.labor.paintToggle = !!preset.paintToggle;
       state.labor.brushToggle = !!preset.brushToggle;
-      state.labor.superBonderToggle = !!preset.superBonderToggle;
       state.labor.otherSuppliesToggle = !!preset.otherSuppliesToggle;
       // Margen según complejidad
       const margins = { simple: 25, easy: 30, medium: 35, hard: 40 };
@@ -465,6 +483,10 @@ function Calculator() {
       state.logistics.packagingType = preset.packagingType;
       state.logistics.packagingSize = preset.packagingSize;
       state.logistics.packagingCustom = preset.packagingCustom;
+      // Los presets aún no apuntan a una lámina real específica de tu inventario —
+      // se deja sin seleccionar para que elijas la lámina en el Paso 4 cada vez.
+      state.logistics.packagingMaterialId = null;
+      state.logistics.packagingCost = 0;
       state.logistics.additionalsToggle = preset.additionalsToggle;
       state.logistics.isFreeShipping = preset.isFreeShipping;
       state.logistics.evaToggle = !!preset.evaToggle;
@@ -544,7 +566,7 @@ function Calculator() {
         <!-- MANUAL PANEL -->
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
           <label class="block text-sm text-zinc-400 mb-4">Nivel de Complejidad</label>
-          <div class="space-y-3">${Object.entries(COMPLEXITY_LEVELS).map(([key, level]) => { const isSelected = state.labor.complexity === key; const laborCost = ((level.postProcessMinutes + level.operatorMinutes) / 60 * HOURLY_RATE); const failureRiskCost = step12Base * (level.failureRisk + fragilityBonus); const estimatedCost = (level.suppliesCost + laborCost + failureRiskCost).toFixed(0); return `<button onclick="updateLabor('complexity', '${key}')" class="w-full p-4 rounded-xl border-2 transition text-left flex items-center justify-between ${isSelected ? 'border-cyan-500 bg-cyan-500/10' : 'border-zinc-700 bg-zinc-800'}"><span class="text-lg font-bold text-white">${level.name}</span><span class="text-sm text-cyan-400 font-mono">${formatCurrency(estimatedCost)}</span></button>`; }).join('')}</div>
+          <div class="space-y-3">${Object.entries(COMPLEXITY_LEVELS).map(([key, level]) => { const isSelected = state.labor.complexity === key; const estimatedCost = (level.suppliesCost + ((level.postProcessMinutes + level.operatorMinutes) / 60 * 20000) * (1 + level.failureRisk)).toFixed(0); return `<button onclick="updateLabor('complexity', '${key}')" class="w-full p-4 rounded-xl border-2 transition text-left flex items-center justify-between ${isSelected ? 'border-cyan-500 bg-cyan-500/10' : 'border-zinc-700 bg-zinc-800'}"><span class="text-lg font-bold text-white">${level.name}</span><span class="text-sm text-cyan-400 font-mono">${formatCurrency(estimatedCost)}</span></button>`; }).join('')}</div>
           ${state.config.amsMode ? `<div class="mt-4 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg text-xs text-cyan-400">✓ Modo AMS activo: +2% adicional aplicado automáticamente</div>` : ''}
         </div>
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
@@ -556,7 +578,6 @@ function Calculator() {
             <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Pintura</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$7.500</span><button onclick="updateLabor('paintToggle', ${!state.labor.paintToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.paintToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.paintToggle ? 'translate-x-5' : ''}"></div></button></div></div>
             <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Imanes/Llaveros</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$1.000</span><button onclick="updateLogistics('additionalsToggle', ${!state.logistics.additionalsToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.logistics.additionalsToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.logistics.additionalsToggle ? 'translate-x-5' : ''}"></div></button></div></div>
             <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Pinceles</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$1.500</span><button onclick="updateLabor('brushToggle', ${!state.labor.brushToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.brushToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.brushToggle ? 'translate-x-5' : ''}"></div></button></div></div>
-            <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">SuperBonder</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$200</span><button onclick="updateLabor('superBonderToggle', ${!state.labor.superBonderToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.superBonderToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.superBonderToggle ? 'translate-x-5' : ''}"></div></button></div></div>
             <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2 border border-amber-500/30"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Otro/Varios</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-amber-400">+5%</span><button onclick="updateLabor('otherSuppliesToggle', ${!state.labor.otherSuppliesToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.otherSuppliesToggle ? 'bg-amber-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.otherSuppliesToggle ? 'translate-x-5' : ''}"></div></button></div></div>
           </div>
           <p class="text-xs text-zinc-500 mt-3">💡 Activa solo los que aplican. "Otro/Varios" suma 5% sobre el total de insumos activos (imprevistos, repetición de una capa, etc).</p>
@@ -567,7 +588,9 @@ function Calculator() {
   }
 
   else if (state.step === 4) {
-    const currentPackagingList = state.logistics.packagingType === 'bag' ? PACKAGING_BAG : PACKAGING;
+    const packagingRootId = PACKAGING_ROOTS[state.logistics.packagingType];
+    const cachedPackaging = state._packagingOptions && state._packagingOptions[packagingRootId];
+    if (!cachedPackaging) loadPackagingOptions(packagingRootId); // dispara el fetch, no bloquea este render
     content = `
       <div class="space-y-5 animate-fade-in">
         <h2 class="text-xl font-black text-cyan-400 uppercase italic">Logística</h2>
@@ -579,10 +602,17 @@ function Calculator() {
         </div>
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
           <label class="block text-sm text-zinc-400 mb-3">Embalaje</label>
-          <div class="grid grid-cols-2 gap-3 mb-4"><button onclick="updateLogistics('packagingType', 'box'); updateLogistics('packagingSize', 'small');" class="py-3 rounded-lg border-2 transition ${state.logistics.packagingType === 'box' ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-zinc-700'}">📦 Caja</button><button onclick="updateLogistics('packagingType', 'bag'); updateLogistics('packagingSize', 'tela');" class="py-3 rounded-lg border-2 transition ${state.logistics.packagingType === 'bag' ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-zinc-700'}">🎒 Bolsa</button></div>
-          <label class="block text-sm text-zinc-400 mb-2">Tamaño</label>
-          <select onchange="updateLogistics('packagingSize', this.value)" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white font-semibold focus:outline-none focus:border-cyan-500 mb-3">${currentPackagingList.map(p => `<option value="${p.id}" ${state.logistics.packagingSize === p.id ? 'selected' : ''}>${p.name}${p.cost > 0 ? ` - ${formatCurrency(p.cost)}` : ''}</option>`).join('')}</select>
-          ${state.logistics.packagingSize === 'deluxe' ? `<div><label class="block text-sm text-zinc-400 mb-2">Costo Personalizado</label><input type="text" inputmode="decimal" value="${state.logistics.packagingCustom}" oninput="debouncedUpdate('packagingCustom', 'logistics', parseFloat(this.value) || 0)" onblur="handleInputBlur('packagingCustom', 'logistics', parseFloat(this.value) || 0)" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-lg font-bold text-cyan-400 focus:outline-none focus:border-cyan-500" placeholder="Ingrese costo" /></div>` : ''}
+          <div class="grid grid-cols-2 gap-3 mb-4"><button onclick="selectPackagingType('box')" class="py-3 rounded-lg border-2 transition ${state.logistics.packagingType === 'box' ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-zinc-700'}">📦 Caja</button><button onclick="selectPackagingType('bag')" class="py-3 rounded-lg border-2 transition ${state.logistics.packagingType === 'bag' ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-zinc-700'}">🎒 Bolsa</button></div>
+          <label class="block text-sm text-zinc-400 mb-2">Lámina / Presentación (desde tu inventario)</label>
+          ${!cachedPackaging ? `
+          <div class="p-4 bg-zinc-800 rounded-lg text-sm text-zinc-500 flex items-center gap-2">⏳ Cargando opciones de tu inventario...</div>` : cachedPackaging.error ? `
+          <div class="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">⚠️ No pude conectar con tu inventario. Usa "Personalizado" por ahora.</div>` : `
+          <select onchange="selectPackagingMaterial(this.value)" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white font-semibold focus:outline-none focus:border-cyan-500 mb-3">
+            <option value="">Selecciona...</option>
+            ${cachedPackaging.items.map(p => `<option value="${p.id}" ${state.logistics.packagingMaterialId === p.id ? 'selected' : ''}>${p.display_name} - ${formatCurrency(p.cost_per_unit)}${p.current_quantity <= 0 ? ' (sin stock)' : ''}</option>`).join('')}
+            <option value="custom" ${state.logistics.packagingMaterialId === null && state.logistics.packagingCost > 0 ? 'selected' : ''}>✏️ Personalizado</option>
+          </select>`}
+          ${(state.logistics.packagingMaterialId === null && cachedPackaging && !cachedPackaging.error) ? `<div class="animate-fade-in"><label class="block text-sm text-zinc-400 mb-2">Costo Personalizado</label><input type="text" inputmode="decimal" value="${state.logistics.packagingCustom}" oninput="debouncedUpdate('packagingCustom', 'logistics', parseFloat(this.value) || 0); debouncedUpdate('packagingCost', 'logistics', parseFloat(this.value) || 0);" onblur="handleInputBlur('packagingCustom', 'logistics', parseFloat(this.value) || 0)" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-lg font-bold text-cyan-400 focus:outline-none focus:border-cyan-500" placeholder="Ingrese costo" /><p class="text-xs text-zinc-500 mt-2">💡 El descuento de esta lámina de tu inventario se hace en el módulo de Cuentas, no aquí — esto solo fija el precio.</p></div>` : ''}
           <div class="pt-4 mt-1 border-t border-zinc-800">
             <h3 class="text-sm font-bold text-white mb-3">Materiales de Embalaje</h3>
             <div class="grid grid-cols-2 gap-3">
@@ -660,7 +690,6 @@ function Calculator() {
             ${r.breakdown.suppliesDetail.paint > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Pintura</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.paint)}</span></div>` : ''}
             ${r.breakdown.suppliesDetail.magnets > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Imanes/Llaveros</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.magnets)}</span></div>` : ''}
             ${r.breakdown.suppliesDetail.brush > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Pinceles</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.brush)}</span></div>` : ''}
-            ${r.breakdown.suppliesDetail.superBonder > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">SuperBonder</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.superBonder)}</span></div>` : ''}
             ${r.breakdown.suppliesDetail.otherRate > 0 ? `<div class="flex justify-between pl-3"><span class="text-amber-400">Otro/Varios (+5%)</span><span class="font-mono text-amber-400">${formatCurrency(r.breakdown.suppliesDetail.otherRate)}</span></div>` : ''}
             <div class="pt-2 mt-1 border-t border-zinc-800"></div>
             <div class="flex justify-between"><span class="text-zinc-400">📦 Empaque</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.packaging)}</span></div>

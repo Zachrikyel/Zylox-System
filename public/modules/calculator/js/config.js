@@ -19,6 +19,9 @@ const MATERIALS = [
   { id: 'tpu', name: 'TPU', coolMinutes: 10, amsRisk: 1.08 }
 ];
 
+// IDs reales en tu tabla materials (Embalaje > Caja=8, Embalaje > Bolsa=9)
+const PACKAGING_ROOTS = { box: 8, bag: 9 };
+
 const SHIPPING_OPTIONS = [
   { id: 'pickup', name: 'Recogida', cost: 0, icon: '🏪' },
   { id: 'local', name: 'Local', cost: 15000, icon: '📦' },
@@ -88,7 +91,6 @@ const SYSTEM_CONFIG = {
   PAINT_COST: 7500,    // redondeado (real: ~65% de un tarro de 60ml a 11.000 ≈ 7.150)
   FAN_COST: 500,        // toggle manual — ver logistics.fanToggle / config.fanToggle
   BRUSH_COST: 1500,     // pinceles — placeholder, pendiente ajuste
-  SUPERBONDER_COST: 200, // SuperBonder — toggle en insumos paso 3
   EXTRAS_FLAT_COST: 1000, // Imanes/Llaveros: ahora monto fijo (antes 2% del precio de venta)
   OTHER_SUPPLIES_RATE: 0.05, // toggle "Otro/Varios": +5% sobre la suma de insumos activos
   EVA_COST: 15000,      // Goma EVA — placeholder, pendiente ajuste
@@ -112,7 +114,7 @@ const AUTHORIZED_USERS = [
 
 // EXPOSICIÓN GLOBAL DE CONSTANTES (CRÍTICO)
 window.SICMA_CONSTANTS = {
-  PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG,
+  PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, PACKAGING_ROOTS,
   COMPLEXITY_LEVELS, GATEWAYS, VARIANT_CONFIGS, MASTER_VARIANT_CONFIGS,
   PACKAGE_CONFIG, SYSTEM_CONFIG, AUTHORIZED_USERS
 };

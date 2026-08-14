@@ -109,32 +109,6 @@ window.Formatters = {
 // CALCULATIONS
 // ============================================
 
-/** Costos de impresión (pasos 1 y 2): material + energía + desgaste */
-function calculateStep12Base(config, print) {
-  const { PRINTERS, NOZZLES, MATERIALS, SYSTEM_CONFIG } = getConstants();
-  const printer = PRINTERS.find(p => p.id === config.printer);
-  const material = MATERIALS.find(m => m.id === config.material);
-  const nozzle = NOZZLES.find(n => n.size === config.nozzle);
-
-  const totalPrintHours = print.printHours || 0;
-  const coolMinutes = print.coolMinutes || material.coolMinutes;
-  const plateMultiplier = print.isPiece === 'multi' ? (Number(print.plateCount) || 1) : 1;
-  const totalCoolHours = (coolMinutes * plateMultiplier) / 60;
-  const totalOccupancyHours = totalPrintHours + totalCoolHours;
-
-  let costEnergy = ((printer.watts * totalPrintHours) + (printer.watts * 0.1 * totalCoolHours)) / 1000 * config.kwhPrice;
-  if (config.fanToggle) costEnergy += SYSTEM_CONFIG.FAN_COST;
-  const costWear = printer.wear * totalOccupancyHours;
-
-  let costMaterial = print.materialCost || 0;
-  costMaterial *= nozzle.riskFactor;
-  if (config.amsMode) costMaterial *= material.amsRisk;
-  if (print.supportsAmount === 'few') costMaterial *= (1 + SYSTEM_CONFIG.SUPPORTS_AMOUNT_FEW_RATE);
-  if (print.supportsAmount === 'many') costMaterial *= (1 + SYSTEM_CONFIG.SUPPORTS_AMOUNT_MANY_RATE);
-
-  return costMaterial + costEnergy + costWear;
-}
-
 function calculateQuote(params) {
   const { config, print, labor, logistics, pricing } = params;
   const { PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, COMPLEXITY_LEVELS, GATEWAYS, SYSTEM_CONFIG } = getConstants();
@@ -186,7 +160,6 @@ function calculateQuote(params) {
   if (labor.paintToggle) costSupplies += SYSTEM_CONFIG.PAINT_COST;
   if (logistics.additionalsToggle) costSupplies += SYSTEM_CONFIG.EXTRAS_FLAT_COST;
   if (labor.brushToggle) costSupplies += SYSTEM_CONFIG.BRUSH_COST;
-  if (labor.superBonderToggle) costSupplies += SYSTEM_CONFIG.SUPERBONDER_COST;
   const suppliesBeforeOtherRate = costSupplies;
   if (labor.otherSuppliesToggle) costSupplies *= (1 + SYSTEM_CONFIG.OTHER_SUPPLIES_RATE);
   const otherSuppliesExtra = costSupplies - suppliesBeforeOtherRate; // el peso real que agrega el +5%
@@ -207,15 +180,10 @@ function calculateQuote(params) {
   const softCosts = costLabor;
   const costOperativo = hardCosts + softCosts + failureRiskPremium; // energía + desgaste + mano de obra + prima de riesgo (comisión de pasarela se suma más abajo)
 
-  // Reposición de Otros: empaque (caja o bolsa según tipo) + materiales de embalaje sueltos
-  const packagingList = logistics.packagingType === 'bag' ? PACKAGING_BAG : PACKAGING;
-  let packagingCost = 0;
-  if (logistics.packagingSize === 'deluxe') {
-    packagingCost = logistics.packagingCustom || 0;
-  } else {
-    const pkg = packagingList.find(p => p.id === logistics.packagingSize);
-    packagingCost = pkg ? pkg.cost : 0;
-  }
+  // Reposición de Otros: empaque (caja o bolsa según tipo) + materiales de embalaje sueltos.
+  // packagingCost ya viene resuelto desde el Paso 4 (precio real de tu inventario, o el monto
+  // personalizado si elegiste esa opción) — no se vuelve a buscar aquí.
+  let packagingCost = logistics.packagingCost || 0;
   let packagingExtras = 0;
   if (logistics.evaToggle) packagingExtras += SYSTEM_CONFIG.EVA_COST;
   if (logistics.vinylToggle) packagingExtras += SYSTEM_CONFIG.VINYL_COST;
@@ -227,7 +195,7 @@ function calculateQuote(params) {
   const logisticsCosts = shippingCost + packagingCost;
 
   // Costo base
-  const baseCostPrelim = materiaPrima + hardCosts + softCosts + logisticsCosts + failureRiskPremium;
+  const baseCostPrelim = materiaPrima + hardCosts + softCosts + logisticsCosts;
   const marginDecimal = pricing.profitMargin / 100;
 
   // Cargo Adicional (imanes/llaveros) — informativo: ya está incluido dentro de materiaPrima/costSupplies arriba,
@@ -312,7 +280,6 @@ function calculateQuote(params) {
         paint: labor.paintToggle ? SYSTEM_CONFIG.PAINT_COST : 0,
         magnets: logistics.additionalsToggle ? SYSTEM_CONFIG.EXTRAS_FLAT_COST : 0,
         brush: labor.brushToggle ? SYSTEM_CONFIG.BRUSH_COST : 0,
-        superBonder: labor.superBonderToggle ? SYSTEM_CONFIG.SUPERBONDER_COST : 0,
         otherRate: labor.otherSuppliesToggle ? otherSuppliesExtra : 0
       },
       labor: costLabor,
@@ -329,8 +296,7 @@ function recalculateVariant(originalResults, newShipping, newPackaging, profitMa
   const shipping = SHIPPING_OPTIONS.find(s => s.id === newShipping);
   const packaging = PACKAGING.find(p => p.id === newPackaging);
 
-  const failureRiskPremium = originalResults.breakdown?.failureRiskPremium || 0;
-  const productionCosts = originalResults.hardCosts + originalResults.softCosts + failureRiskPremium;
+  const productionCosts = originalResults.hardCosts + originalResults.softCosts;
   const newLogisticsCosts = shipping.cost + packaging.cost;
   const baseCostPrelim = productionCosts + newLogisticsCosts;
 
@@ -367,7 +333,7 @@ function calculatePackage(quotes, packageLogistics, profitMargin) {
   quotes.forEach(item => {
     const quote = item.quote;
     totalHardCosts += quote.results.hardCosts;
-    totalSoftCosts += quote.results.softCosts + (quote.results.breakdown?.failureRiskPremium || 0);
+    totalSoftCosts += quote.results.softCosts;
 
     if (item.variant) {
       individualTotal += item.variant.final_price;
@@ -465,7 +431,7 @@ function calculatePackageN1(selectedQuotes, packageLogistics) {
 
   // === COSTOS DE PRODUCCIÓN ===
   const productionCosts = selectedQuotes.reduce((sum, q) =>
-    sum + q.results.hardCosts + q.results.softCosts + (q.results.breakdown?.failureRiskPremium || 0), 0
+    sum + q.results.hardCosts + q.results.softCosts, 0
   );
 
   // === LOGÍSTICA REAL ===
@@ -563,7 +529,6 @@ function calculatePackagePriceOption(baseCost, margin) {
 }
 
 window.Calculations = {
-  calculateStep12Base,
   calculateQuote,
   recalculateVariant,
   calculatePackage,
@@ -594,6 +559,30 @@ async function getProducts() {
     console.error('❌ Error obteniendo productos:', error);
     return [];
   }
+}
+
+// Trae las opciones reales de empaque desde tu inventario (materials), vía la función
+// get_leaf_materials de Supabase. Cachea por root_id para no repetir la consulta.
+async function loadPackagingOptions(rootId) {
+  window.calculatorState._packagingOptions = window.calculatorState._packagingOptions || {};
+  if (window.calculatorState._packagingOptions[rootId]) return; // ya en caché, incl. arrays vacíos ya resueltos
+
+  const supabase = getSupabase();
+  if (!supabase) {
+    window.calculatorState._packagingOptions[rootId] = { error: true, items: [] };
+    if (window.renderModule) window.renderModule();
+    return;
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('get_leaf_materials', { root_id: rootId });
+    if (error) throw error;
+    window.calculatorState._packagingOptions[rootId] = { error: false, items: data || [] };
+  } catch (e) {
+    console.error('❌ Error cargando opciones de empaque desde inventario:', e);
+    window.calculatorState._packagingOptions[rootId] = { error: true, items: [] };
+  }
+  if (window.renderModule) window.renderModule();
 }
 
 async function saveQuote(quoteData) {
