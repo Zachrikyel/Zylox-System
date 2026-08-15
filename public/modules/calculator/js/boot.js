@@ -1,6 +1,6 @@
 // 1. Inicializar Estado Global
 window.appState = {
-  screen: 'type-selector',      // <--- INICIO EN EL SELECTOR DE TIPO
+  screen: 'home',      // <--- INICIO EN EL MENÚ PRINCIPAL
   currentQuote: null,
   user: null,
   isAuthorized: true
@@ -14,27 +14,27 @@ function syncWithParentHeader() {
   const screen = window.appState.screen;
 
   // Configurar Home del Módulo
-  parent.stageModuleHome = () => navigateTo('type-selector');
+  parent.stageModuleHome = () => navigateTo('home');
 
   // Configurar Atrás según contexto
-  if (screen === 'type-selector') {
-    // En selector de tipo, atrás cierra la herramienta
+  if (screen === 'home') {
+    // En home del módulo, atrás cierra la herramienta
     parent.stageBack = () => parent.closeTool && parent.closeTool();
     if (parent.updateStageBackVisible) parent.updateStageBackVisible(true);
     if (parent.updateStageTitle) parent.updateStageTitle('Calculadora 3D');
   }
-  else if (screen === 'home') {
-    // En home del módulo FIL, atrás vuelve al selector
-    parent.stageBack = () => navigateTo('type-selector');
+  else if (screen === 'type-selector') {
+    // En selector de tipo, atrás vuelve al home
+    parent.stageBack = () => navigateTo('home');
     if (parent.updateStageBackVisible) parent.updateStageBackVisible(true);
-    if (parent.updateStageTitle) parent.updateStageTitle('Calculadora FIL');
+    if (parent.updateStageTitle) parent.updateStageTitle('Nueva Cotización');
   }
   else if (screen === 'calculator') {
     const step = window.calculatorState?.step || 1;
     if (step > 1) {
       parent.stageBack = () => window.prevStep && window.prevStep();
     } else {
-      parent.stageBack = () => navigateTo('home');
+      parent.stageBack = () => navigateTo('type-selector');
     }
     if (parent.updateStageTitle) parent.updateStageTitle(`Paso ${step}/6`);
     if (parent.updateStageBackVisible) parent.updateStageBackVisible(true);
@@ -60,7 +60,7 @@ function syncWithParentHeader() {
     if (parent.updateStageBackVisible) parent.updateStageBackVisible(true);
   }
   else {
-    parent.stageBack = () => navigateTo('type-selector');
+    parent.stageBack = () => navigateTo('home');
     if (parent.updateStageBackVisible) parent.updateStageBackVisible(true);
   }
 }
@@ -99,7 +99,7 @@ function renderModule() {
         root.innerHTML = window.Components.ResinHome();
       }
       else {
-        root.innerHTML = window.Components.TypeSelector();
+        root.innerHTML = window.Components.HomeScreen();
       }
     } catch (e) {
       console.error("❌ Error renderizando pantalla:", e);

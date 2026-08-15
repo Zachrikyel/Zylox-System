@@ -144,7 +144,7 @@ function TypeSelector() {
         <div class="grid grid-cols-1 gap-4">
 
           <!-- TARJETA FIL -->
-          <button onclick="navigateTo('home')" class="group relative overflow-hidden bg-zinc-900 border border-zinc-800 p-6 transition-all hover:border-cyan-500 text-left" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
+          <button onclick="navigateTo('calculator')" class="group relative overflow-hidden bg-zinc-900 border border-zinc-800 p-6 transition-all hover:border-cyan-500 text-left" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
             <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div class="flex items-start justify-between mb-4 relative z-10">
               <div class="p-3 bg-zinc-800 border border-zinc-700 text-cyan-400 group-hover:text-white group-hover:bg-cyan-500 transition-colors">
@@ -152,7 +152,7 @@ function TypeSelector() {
               </div>
               <span class="text-[10px] font-bold text-cyan-500 bg-cyan-500/10 px-2 py-1 tracking-widest">ACTIVO</span>
             </div>
-            <h3 class="text-xl font-bold text-white mb-1 uppercase italic relative z-10">Calculadora FIL</h3>
+            <h3 class="text-xl font-bold text-white mb-1 uppercase italic relative z-10">Filamento</h3>
             <p class="text-xs text-zinc-400 font-mono relative z-10">Cotización para impresión 3D con filamento (FDM)</p>
             <div class="mt-4 flex items-center gap-2 relative z-10">
               <div class="h-[2px] flex-1 bg-gradient-to-r from-cyan-500/40 to-transparent"></div>
@@ -169,7 +169,7 @@ function TypeSelector() {
               </div>
               <span class="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 tracking-widest">PRÓXIMAMENTE</span>
             </div>
-            <h3 class="text-xl font-bold text-white mb-1 uppercase italic relative z-10">Calculadora Resina</h3>
+            <h3 class="text-xl font-bold text-white mb-1 uppercase italic relative z-10">Resina</h3>
             <p class="text-xs text-zinc-400 font-mono relative z-10">Cotización para impresión 3D con resina (SLA/DLP)</p>
             <div class="mt-4 flex items-center gap-2 relative z-10">
               <div class="h-[2px] flex-1 bg-gradient-to-r from-amber-500/30 to-transparent"></div>
@@ -236,7 +236,7 @@ function HomeScreen() {
     <div class="min-h-screen bg-transparent text-white flex flex-col p-6 animate-fade-in pt-4">
       <div class="max-w-lg mx-auto w-full space-y-6">
         <div class="grid grid-cols-1 gap-4">
-          <button onclick="navigateTo('calculator')" class="group relative overflow-hidden bg-zinc-900 border border-zinc-800 p-6 transition-all hover:border-cyan-500" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
+          <button onclick="navigateTo('type-selector')" class="group relative overflow-hidden bg-zinc-900 border border-zinc-800 p-6 transition-all hover:border-cyan-500" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
             <div class="flex items-start justify-between mb-3 relative z-10">
               <div class="p-3 bg-zinc-800 border border-zinc-700 text-cyan-400 group-hover:text-white group-hover:bg-cyan-500 transition-colors">${Icons.Calculator(28)}</div>
               <span class="text-[10px] font-bold text-cyan-500 bg-cyan-500/10 px-2 py-1 tracking-widest">PRINCIPAL</span>
