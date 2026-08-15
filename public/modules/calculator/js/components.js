@@ -126,6 +126,108 @@ window.handleInputBlur = (key, section, value) => {
 // ============================================
 // 1. HOME SCREEN
 // ============================================
+// ============================================
+// 1.5 TYPE SELECTOR (FIL vs RESINA)
+// ============================================
+function TypeSelector() {
+  const Icons = getIcons();
+
+  return `
+    <div class="min-h-screen bg-transparent text-white flex flex-col p-6 animate-fade-in pt-4">
+      <div class="max-w-lg mx-auto w-full space-y-6">
+
+        <!-- Header -->
+        <div class="text-center mb-2">
+          <p class="text-[10px] font-mono text-zinc-500 tracking-[0.3em] uppercase">Selecciona el tipo de calculadora</p>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4">
+
+          <!-- TARJETA FIL -->
+          <button onclick="navigateTo('home')" class="group relative overflow-hidden bg-zinc-900 border border-zinc-800 p-6 transition-all hover:border-cyan-500 text-left" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
+            <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div class="flex items-start justify-between mb-4 relative z-10">
+              <div class="p-3 bg-zinc-800 border border-zinc-700 text-cyan-400 group-hover:text-white group-hover:bg-cyan-500 transition-colors">
+                <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"/><path d="M12 6v12M8 8l4-2 4 2M8 16l4 2 4-2"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+              </div>
+              <span class="text-[10px] font-bold text-cyan-500 bg-cyan-500/10 px-2 py-1 tracking-widest">ACTIVO</span>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-1 uppercase italic relative z-10">Calculadora FIL</h3>
+            <p class="text-xs text-zinc-400 font-mono relative z-10">Cotización para impresión 3D con filamento (FDM)</p>
+            <div class="mt-4 flex items-center gap-2 relative z-10">
+              <div class="h-[2px] flex-1 bg-gradient-to-r from-cyan-500/40 to-transparent"></div>
+              <span class="text-[9px] text-zinc-600 font-mono uppercase">PLA · PETG · ABS · TPU</span>
+            </div>
+          </button>
+
+          <!-- TARJETA RESINA -->
+          <button onclick="navigateTo('resin-home')" class="group relative overflow-hidden bg-zinc-900 border border-zinc-800 p-6 transition-all hover:border-amber-500/60 text-left opacity-70 hover:opacity-90" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
+            <div class="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div class="flex items-start justify-between mb-4 relative z-10">
+              <div class="p-3 bg-zinc-800 border border-zinc-700 text-amber-400 group-hover:text-white group-hover:bg-amber-500/80 transition-colors">
+                <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 2C12 2 8 7 8 12a4 4 0 0 0 8 0c0-5-4-10-4-10z"/><path d="M6 19c0 1.7 2.7 3 6 3s6-1.3 6-3"/><line x1="12" y1="16" x2="12" y2="22"/></svg>
+              </div>
+              <span class="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 tracking-widest">PRÓXIMAMENTE</span>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-1 uppercase italic relative z-10">Calculadora Resina</h3>
+            <p class="text-xs text-zinc-400 font-mono relative z-10">Cotización para impresión 3D con resina (SLA/DLP)</p>
+            <div class="mt-4 flex items-center gap-2 relative z-10">
+              <div class="h-[2px] flex-1 bg-gradient-to-r from-amber-500/30 to-transparent"></div>
+              <span class="text-[9px] text-zinc-600 font-mono uppercase">EN DESARROLLO</span>
+            </div>
+          </button>
+
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================
+// 1.6 RESIN HOME (PLACEHOLDER)
+// ============================================
+function ResinHome() {
+  const Icons = getIcons();
+
+  return `
+    <div class="min-h-screen bg-transparent text-white flex flex-col items-center justify-center p-6 animate-fade-in">
+      <div class="max-w-md w-full text-center space-y-6">
+
+        <div class="mx-auto w-20 h-20 bg-zinc-900 border border-zinc-800 flex items-center justify-center" style="clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);">
+          <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="text-amber-400">
+            <path d="M12 2C12 2 8 7 8 12a4 4 0 0 0 8 0c0-5-4-10-4-10z"/>
+            <path d="M6 19c0 1.7 2.7 3 6 3s6-1.3 6-3"/>
+            <line x1="12" y1="16" x2="12" y2="22"/>
+          </svg>
+        </div>
+
+        <div>
+          <h2 class="text-2xl font-black uppercase italic text-white mb-2">Calculadora Resina</h2>
+          <p class="text-sm text-zinc-500 font-mono">Este módulo está en desarrollo</p>
+        </div>
+
+        <div class="bg-zinc-900 border border-zinc-800 p-6" style="clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-2 h-2 bg-amber-500 animate-pulse"></div>
+            <span class="text-[10px] font-bold text-amber-500 tracking-widest uppercase">En construcción</span>
+          </div>
+          <p class="text-xs text-zinc-400 leading-relaxed text-left">
+            La calculadora de resina permitirá cotizar impresiones SLA/DLP con cálculos de volumen de resina, tiempos de curado UV, y costos específicos del proceso.
+          </p>
+        </div>
+
+        <button onclick="navigateTo('type-selector')" class="w-full py-3 bg-zinc-800 text-zinc-400 font-bold uppercase text-xs tracking-widest hover:bg-zinc-700 hover:text-white transition-colors border border-zinc-700">
+          ← Volver al selector
+        </button>
+
+      </div>
+    </div>
+  `;
+}
+
+// ============================================
+// 2. HOME SCREEN (FIL - ORIGINAL SIN CAMBIOS)
+// ============================================
 function HomeScreen() {
   const Icons = getIcons();
   setTimeout(() => window.loadDashboardStats && window.loadDashboardStats(), 100);
@@ -1910,6 +2012,8 @@ window.saveQuoteToDatabase = async () => {
 // EXPORT
 // ============================================
 window.Components = {
+  TypeSelector,
+  ResinHome,
   HomeScreen,
   Calculator,
   History,

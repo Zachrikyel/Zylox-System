@@ -1,6 +1,6 @@
 // 1. Inicializar Estado Global
 window.appState = {
-  screen: 'home',      // <--- FORZAMOS INICIO EN EL MENÚ
+  screen: 'type-selector',      // <--- INICIO EN EL SELECTOR DE TIPO
   currentQuote: null,
   user: null,
   isAuthorized: true
@@ -14,14 +14,20 @@ function syncWithParentHeader() {
   const screen = window.appState.screen;
 
   // Configurar Home del Módulo
-  parent.stageModuleHome = () => navigateTo('home');
+  parent.stageModuleHome = () => navigateTo('type-selector');
 
   // Configurar Atrás según contexto
-  if (screen === 'home') {
-    // En home del módulo, atrás cierra la herramienta
+  if (screen === 'type-selector') {
+    // En selector de tipo, atrás cierra la herramienta
     parent.stageBack = () => parent.closeTool && parent.closeTool();
     if (parent.updateStageBackVisible) parent.updateStageBackVisible(true);
     if (parent.updateStageTitle) parent.updateStageTitle('Calculadora 3D');
+  }
+  else if (screen === 'home') {
+    // En home del módulo FIL, atrás vuelve al selector
+    parent.stageBack = () => navigateTo('type-selector');
+    if (parent.updateStageBackVisible) parent.updateStageBackVisible(true);
+    if (parent.updateStageTitle) parent.updateStageTitle('Calculadora FIL');
   }
   else if (screen === 'calculator') {
     const step = window.calculatorState?.step || 1;
@@ -48,8 +54,13 @@ function syncWithParentHeader() {
     if (parent.updateStageTitle) parent.updateStageTitle('Historial');
     if (parent.updateStageBackVisible) parent.updateStageBackVisible(true);
   }
+  else if (screen === 'resin-home') {
+    parent.stageBack = () => navigateTo('type-selector');
+    if (parent.updateStageTitle) parent.updateStageTitle('Calculadora Resina');
+    if (parent.updateStageBackVisible) parent.updateStageBackVisible(true);
+  }
   else {
-    parent.stageBack = () => navigateTo('home');
+    parent.stageBack = () => navigateTo('type-selector');
     if (parent.updateStageBackVisible) parent.updateStageBackVisible(true);
   }
 }
@@ -69,7 +80,10 @@ function renderModule() {
   // Verificar si los componentes cargaron
   if (window.Components) {
     try {
-      if (screen === 'home') {
+      if (screen === 'type-selector') {
+        root.innerHTML = window.Components.TypeSelector();
+      }
+      else if (screen === 'home') {
         root.innerHTML = window.Components.HomeScreen();
       }
       else if (screen === 'calculator') {
@@ -81,8 +95,11 @@ function renderModule() {
       else if (screen === 'packages') {
         root.innerHTML = window.Components.PackageCalculator();
       }
+      else if (screen === 'resin-home') {
+        root.innerHTML = window.Components.ResinHome();
+      }
       else {
-        root.innerHTML = window.Components.HomeScreen();
+        root.innerHTML = window.Components.TypeSelector();
       }
     } catch (e) {
       console.error("❌ Error renderizando pantalla:", e);
