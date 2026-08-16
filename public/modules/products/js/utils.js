@@ -148,12 +148,30 @@ window.createProduct = async (formData, linkedQuoteId = null) => {
         material_weight_kg: weightKg,
         slug: slugify(`${formData.name}-${formData.sku}`),
         is_free_shipping: formData.isFreeShipping || false,
+        packaging_material_id: formData.packagingId || null,
+        is_stock_item: formData.isStockItem !== false,
     };
 
     const { data, error } = await supabase.from('products').insert([payload]).select().single();
     if (error) {
         if (error.code === '42501') throw new Error("Permiso denegado (RLS).");
         throw error;
+    }
+
+    // Receta de colores (product_bom): uno por cada color capturado en la cotización importada.
+    // El primero (índice 0) queda como obligatorio, el resto opcional — mismo orden en que se
+    // capturaron en el Paso 2 de la calculadora.
+    const colorSlots = formData.importedColorSlots || [];
+    if (colorSlots.length > 0 && data.id) {
+        const bomRows = colorSlots.map((slot, i) => ({
+            product_id: data.id,
+            material_id: slot.materialId,
+            quantity_required: slot.grams,
+            is_required: i === 0,
+            display_order: i + 1,
+        }));
+        const { error: bomError } = await supabase.from('product_bom').insert(bomRows);
+        if (bomError) console.error('❌ Error creando receta de materiales (product_bom):', bomError);
     }
 
     if (linkedQuoteId && data.id) {
