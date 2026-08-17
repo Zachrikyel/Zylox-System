@@ -41,6 +41,32 @@ window.parseLocalFloat = (val) => {
     return parseFloat(clean) || 0;
 };
 
+window.fetchFilamentOptions = async () => {
+    const supabase = getSupabase();
+    if (!supabase) return [];
+    try {
+        const { data: allMaterials, error } = await supabase.from('materials').select('id, name, parent_id, current_quantity');
+        if (error) throw error;
+        if (!allMaterials) return [];
+        const rootNode = allMaterials.find(m => m.name.toLowerCase().includes('filamento') && !m.parent_id);
+        if (!rootNode) return [];
+        const byParent = {};
+        allMaterials.forEach(m => { (byParent[m.parent_id] = byParent[m.parent_id] || []).push(m); });
+        const leaves = [];
+        const walk = (node, path) => {
+            const children = byParent[node.id] || [];
+            const fullPath = path ? `${path} ${node.name}` : node.name;
+            if (children.length === 0) {
+                leaves.push({ id: node.id, display_name: fullPath, current_quantity: node.current_quantity });
+            } else {
+                children.forEach(c => walk(c, fullPath));
+            }
+        };
+        (byParent[rootNode.id] || []).forEach(c => walk(c, ''));
+        return leaves.sort((a, b) => a.display_name.localeCompare(b.display_name));
+    } catch (e) { console.error(e); return []; }
+};
+
 // --- 2. FETCHERS BASE (Configuración) ---
 window.fetchPackagingOptions = async () => {
     const supabase = getSupabase();
@@ -205,6 +231,23 @@ window.createVariant = async (variantData) => {
 
     if (colorError) throw colorError;
 
+    // Mini-receta de la variante: materiales EXTRA que agrega (ej. negro+blanco de las gafas
+    // del Squirtle, o el rojo de la cruz de Chansey) — se suma a la receta base del producto,
+    // no la reemplaza.
+    const materialRows = (variantData.materialRows || []).filter(r => r.materialId && r.grams > 0);
+    if (materialRows.length > 0) {
+        const bomPayload = materialRows.map((r, i) => ({
+            product_id: productId,
+            product_color_id: colorRecord.id,
+            material_id: r.materialId,
+            quantity_required: r.grams,
+            is_required: true,
+            display_order: i + 1,
+        }));
+        const { error: bomError } = await supabase.from('product_bom').insert(bomPayload);
+        if (bomError) console.error('❌ Error guardando mini-receta de la variante:', bomError);
+    }
+
     if (images.length > 0) {
         const mediaPayload = images.map((imgUrl, index) => ({
             product_id: productId,
@@ -244,7 +287,7 @@ window.fetchProductDetails = async (id) => {
     const supabase = getSupabase();
     if (!supabase) return null;
 
-    // Traemos producto y sus hijos (colores y media)
+    // Traemos producto y sus hijos (colores, media y recetas)
     const { data, error } = await supabase
         .from('products')
         .select(`
@@ -254,6 +297,9 @@ window.fetchProductDetails = async (id) => {
             ),
             product_media (
                 id, media_url, display_order, associated_color_id
+            ),
+            product_bom (
+                id, material_id, quantity_required, product_color_id, is_required, display_order
             )
         `)
         .eq('id', id)
@@ -312,7 +358,9 @@ window.updateProductMaster = async (id, rawData) => {
         is_published: rawData.isPublished,
         is_trending: rawData.isTrending,
         is_free_shipping: rawData.isFreeShipping || false,
-        display_order: parseInt(rawData.displayOrder)
+        display_order: parseInt(rawData.displayOrder),
+        is_stock_item: rawData.isStockItem !== false,
+        packaging_material_id: rawData.packagingId || null,
     };
 
     // NOTA: No enviamos 'discount_percentage' porque no existe en la tabla.
@@ -339,8 +387,8 @@ window.deleteVariant = async (colorId) => {
     return true;
 };
 
-// F. Actualización Completa de Variante (Color + Fotos con Wipe & Replace)
-window.updateVariantFull = async (variantId, parentProductId, name, hex, images, priceAdjustment = 0) => {
+// F. Actualización Completa de Variante (Color + Fotos + Receta, con Wipe & Replace)
+window.updateVariantFull = async (variantId, parentProductId, name, hex, images, priceAdjustment = 0, materialRows = []) => {
     const supabase = getSupabase();
 
     // 1. Actualizar Datos del Color
@@ -379,6 +427,28 @@ window.updateVariantFull = async (variantId, parentProductId, name, hex, images,
         if (insertError) throw new Error("Error actualizando fotos: " + insertError.message);
     }
 
+    // 3. Transacción de Receta (Wipe & Replace) — mismo patrón que las fotos
+    const { error: bomDeleteError } = await supabase
+        .from('product_bom')
+        .delete()
+        .eq('product_color_id', variantId);
+
+    if (bomDeleteError) throw new Error("Error limpiando receta anterior: " + bomDeleteError.message);
+
+    const validRows = (materialRows || []).filter(r => r.materialId && r.grams > 0);
+    if (validRows.length > 0) {
+        const bomPayload = validRows.map((r, i) => ({
+            product_id: parentProductId,
+            product_color_id: variantId,
+            material_id: r.materialId,
+            quantity_required: r.grams,
+            is_required: true,
+            display_order: i + 1,
+        }));
+        const { error: bomInsertError } = await supabase.from('product_bom').insert(bomPayload);
+        if (bomInsertError) throw new Error("Error guardando receta nueva: " + bomInsertError.message);
+    }
+
     return true;
 };
 
@@ -402,7 +472,9 @@ window.syncProductFromQuote = async (productId) => {
     if (!quote) return { success: false, reason: 'no_quote' };
 
     const newBasePrice = Math.round(quote.results?.finalPrice || 0);
-    const newMargin = Math.round(quote.results?.netProfit || 0);
+    // Mismo fix que en el importador: etiquetas.gananciaReal ya resta la comisión de
+    // pasarela, netProfit no — quedaba sobreestimado en cotizaciones pagadas por Wompi.
+    const newMargin = Math.round(quote.results?.etiquetas ? quote.results.etiquetas.gananciaReal : (quote.results?.netProfit || 0));
 
     const supabase = getSupabase();
     if (!supabase) return { success: false, reason: 'no_connection' };
