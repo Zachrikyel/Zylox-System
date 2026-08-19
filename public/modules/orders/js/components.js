@@ -213,9 +213,10 @@ const OrdersUI = {
         const container = document.getElementById('history-container');
         container.innerHTML = '<div class="text-center text-zinc-500 text-xs mt-4">Cargando...</div>';
         const { data, error } = await window.supabaseClient
-            .from('orders').select(`id, created_at, total_amount, guest_info, order_items(quantity, product:products(name))`)
+            .from('orders').select(`id, created_at, total_amount, guest_info, order_items(id, quantity, selected_color, product:products(id, name))`)
             .order('created_at', { ascending: false }).limit(20);
         if (error) return;
+        window._historyOrders = data; // cache para abrir el editor sin volver a pedirlo
         container.innerHTML = data.map(o => {
             let guestLabel = '';
             if (o.guest_info) {
@@ -225,7 +226,7 @@ const OrdersUI = {
                 } catch { guestLabel = String(o.guest_info); }
             }
             return `
-            <div class="bg-zinc-900 border border-zinc-800 p-3 flex justify-between hover:border-zinc-600">
+            <div onclick="openOrderEditor(${o.id})" class="bg-zinc-900 border border-zinc-800 p-3 flex justify-between hover:border-cyan-500 cursor-pointer transition-colors">
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="text-[#39FF14] font-mono text-xs">#${o.id}</span>
                     <span class="text-[9px] text-zinc-500">${new Date(o.created_at).toLocaleDateString()}</span>
@@ -234,5 +235,84 @@ const OrdersUI = {
                 <div class="text-white font-mono text-sm">${Utils.formatCurrency(o.total_amount)}</div>
             </div>`;
         }).join('');
+    }
+};
+// --- EDITOR DE ORDENES ---
+window.openOrderEditor = async (orderId) => {
+    const order = (window._historyOrders || []).find(o => o.id === orderId);
+    if (!order) return;
+
+    if (!window._orderEditorFilamentOptions) {
+        window._orderEditorFilamentOptions = 'loading';
+        window.fetchFilamentOptions().then(opts => { window._orderEditorFilamentOptions = opts; renderOrderEditorModal(order); });
+    }
+
+    // Traemos el consumo real (quote_materials) de cada línea, en una sola pasada
+    window._orderEditorMaterials = {};
+    for (const item of order.order_items) {
+        window._orderEditorMaterials[item.id] = await window.fetchOrderItemMaterials(item.id);
+    }
+
+    renderOrderEditorModal(order);
+};
+
+window.closeOrderEditor = () => {
+    const el = document.getElementById('order-editor-modal');
+    if (el) el.remove();
+};
+
+function renderOrderEditorModal(order) {
+    const existing = document.getElementById('order-editor-modal');
+    if (existing) existing.remove();
+
+    const opts = window._orderEditorFilamentOptions;
+    const loading = opts === 'loading' || !opts;
+
+    const modal = document.createElement('div');
+    modal.id = 'order-editor-modal';
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fade-in';
+    modal.innerHTML = `
+        <div class="bg-zinc-900 border-2 border-cyan-500 max-w-md w-full p-5 max-h-[85vh] overflow-y-auto" style="clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 100%);">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-cyan-400 font-bold uppercase text-sm">Editar Orden #${order.id}</h3>
+                <button onclick="closeOrderEditor()" class="text-zinc-500 hover:text-white">✕</button>
+            </div>
+            <div class="space-y-4">
+                ${order.order_items.map(item => {
+                    const rows = window._orderEditorMaterials[item.id] || [];
+                    return `
+                    <div class="border border-zinc-800 p-3">
+                        <div class="text-xs text-white font-bold mb-1">${item.product ? item.product.name : 'Producto'} <span class="text-zinc-500">x${item.quantity}</span></div>
+                        <div class="text-[10px] text-zinc-500 mb-2">Color actual: ${item.selected_color || '—'}</div>
+                        ${loading ? `<div class="text-[10px] text-zinc-600">⏳ Cargando materiales...</div>` : rows.length === 0 ? `<div class="text-[10px] text-zinc-600">Sin materiales registrados para esta línea.</div>` : rows.map(r => `
+                        <div class="flex items-center gap-2 mb-1">
+                            <select onchange="handleOrderMaterialSwap(${item.id}, ${r.id}, this.value)" class="flex-1 bg-black border border-zinc-700 p-1.5 text-[10px] text-white">
+                                ${opts.map(m => `<option value="${m.id}" ${m.id === r.material_id ? 'selected' : ''}>${m.display_name}${m.current_quantity <= 0 ? ' ⚠️' : ''}</option>`).join('')}
+                            </select>
+                            <span class="text-[9px] text-yellow-400 font-mono">${r.quantity}g</span>
+                        </div>`).join('')}
+                    </div>`;
+                }).join('')}
+            </div>
+            <p class="text-[9px] text-zinc-600 mt-3">💡 El cambio descuenta el material nuevo y devuelve el anterior al inventario automáticamente.</p>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+// Se dispara al elegir un material nuevo en el editor: actualiza quote_materials (el
+// disparador ya conectado hace el ajuste de inventario) y refresca la etiqueta de color.
+window.handleOrderMaterialSwap = async (orderItemId, quoteMaterialRowId, newMaterialIdStr) => {
+    const newMaterialId = Number(newMaterialIdStr);
+    try {
+        await window.swapOrderItemMaterial(quoteMaterialRowId, newMaterialId);
+        const opts = window._orderEditorFilamentOptions || [];
+        const chosen = opts.find(m => m.id === newMaterialId);
+        if (chosen) await window.updateOrderItemColorLabel(orderItemId, chosen.display_name);
+        showNotification("Material actualizado", "success");
+        await OrdersUI.loadHistory(); // refresca el historial con la etiqueta nueva
+    } catch (e) {
+        console.error(e);
+        showNotification("Error: " + e.message, "error");
     }
 };

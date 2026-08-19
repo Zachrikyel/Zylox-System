@@ -112,3 +112,63 @@ const Utils = {
         return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
     }
 };
+// --- EDITOR DE ORDENES: cambiar el color/material real de una línea ya vendida
+// (ej. facehugger negro→verde) sin crear cotización nueva. ---
+
+window.fetchFilamentOptions = async () => {
+    const supabase = window.supabaseClient;
+    if (!supabase) return [];
+    try {
+        const { data: allMaterials, error } = await supabase.from('materials').select('id, name, parent_id, current_quantity');
+        if (error) throw error;
+        if (!allMaterials) return [];
+        const rootNode = allMaterials.find(m => m.name.toLowerCase().includes('filamento') && !m.parent_id);
+        if (!rootNode) return [];
+        const byParent = {};
+        allMaterials.forEach(m => { (byParent[m.parent_id] = byParent[m.parent_id] || []).push(m); });
+        const leaves = [];
+        const walk = (node, path) => {
+            const children = byParent[node.id] || [];
+            const fullPath = path ? `${path} ${node.name}` : node.name;
+            if (children.length === 0) {
+                leaves.push({ id: node.id, display_name: fullPath, current_quantity: node.current_quantity });
+            } else {
+                children.forEach(c => walk(c, fullPath));
+            }
+        };
+        (byParent[rootNode.id] || []).forEach(c => walk(c, ''));
+        return leaves.sort((a, b) => a.display_name.localeCompare(b.display_name));
+    } catch (e) { console.error(e); return []; }
+};
+
+// Trae las filas reales de consumo (quote_materials) de una línea de orden específica
+window.fetchOrderItemMaterials = async (orderItemId) => {
+    const supabase = window.supabaseClient;
+    const { data, error } = await supabase
+        .from('quote_materials')
+        .select('id, material_id, quantity')
+        .eq('order_item_id', orderItemId);
+    if (error) { console.error(error); return []; }
+    return data || [];
+};
+
+// Cambia el material de UNA fila de consumo ya existente. El disparador que ya está
+// conectado revierte el material viejo y descuenta el nuevo — no hay que tocar nada más.
+window.swapOrderItemMaterial = async (quoteMaterialRowId, newMaterialId) => {
+    const supabase = window.supabaseClient;
+    const { error } = await supabase
+        .from('quote_materials')
+        .update({ material_id: newMaterialId })
+        .eq('id', quoteMaterialRowId);
+    if (error) throw error;
+};
+
+// Actualiza el texto que se ve en la orden (no afecta el inventario, solo la etiqueta)
+window.updateOrderItemColorLabel = async (orderItemId, newLabel) => {
+    const supabase = window.supabaseClient;
+    const { error } = await supabase
+        .from('order_items')
+        .update({ selected_color: newLabel })
+        .eq('id', orderItemId);
+    if (error) throw error;
+};
