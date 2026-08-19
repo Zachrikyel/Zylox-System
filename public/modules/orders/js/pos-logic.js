@@ -132,7 +132,12 @@ const WizardLogic = {
                 basePrice: finalUnitPrice, // Aquí va el precio correcto
                 qty: qty,
                 variantName: variantName,
-                variantId: variantId
+                variantId: variantId,
+                // Fotografía congelada para Cuentas: lo que la calculadora predijo para
+                // este producto, sin importar en qué termine vendiéndose finalUnitPrice.
+                predictedPrice: p.base_price || 0,
+                predictedProfit: p.profit_margin || 0,
+                predictedOperationalCost: (p.specific_kwh_cost || 0) + (p.specific_wear_cost || 0) + (p.specific_labor_cost || 0)
             });
         });
     }
@@ -206,7 +211,8 @@ const CartManager = {
         const manualTotal = parseFloat(inputTotal.value) || 0;
         const subtotalCatalog = CartManager.cart.reduce((s, i) => s + (i.basePrice * i.qty), 0);
 
-        const baseProfit = subtotalCatalog * 0.30;
+        // Ganancia real de cada producto (de la calculadora), no un 30% asumido para todos.
+        const baseProfit = CartManager.cart.reduce((s, i) => s + ((i.predictedProfit || 0) * i.qty), 0);
         const diff = manualTotal - subtotalCatalog;
         const totalProfit = manualTotal > 0 ? (baseProfit + diff) : 0;
 
@@ -249,16 +255,41 @@ const CartManager = {
             const factor = (CartManager.cart.reduce((s, i) => s + i.basePrice * i.qty, 0) || 1);
             const ratio = total / factor;
 
+            // Receta (base + variante) de todos los productos del carrito, en una sola consulta.
+            const productIds = [...new Set(CartManager.cart.map(i => i.productId))];
+            const { data: allBom } = await supabase.from('product_bom').select('product_id, material_id, quantity_required, product_color_id').in('product_id', productIds);
+
             for (const item of CartManager.cart) {
-                await supabase.from('order_items').insert({
+                const { data: insertedItem, error: itemError } = await supabase.from('order_items').insert({
                     order_id: order.id,
                     product_id: item.productId,
                     quantity: item.qty,
                     unit_price: item.basePrice * ratio,
                     subtotal: (item.basePrice * item.qty) * ratio,
                     selected_color: item.variantName === 'N/A' ? null : item.variantName,
-                    selected_size: 'ÚNICA'
-                });
+                    selected_size: 'ÚNICA',
+                    predicted_price: item.predictedPrice || 0,
+                    predicted_profit: item.predictedProfit || 0,
+                    predicted_operational_cost: item.predictedOperationalCost || 0
+                }).select().single();
+
+                if (itemError) throw itemError;
+
+                // Consumo real de esta línea: receta base + la de la variante elegida (si hay).
+                // Esto es lo que dispara el descuento real de inventario (ya conectado en Supabase).
+                const recipeRows = (allBom || []).filter(b =>
+                    b.product_id === item.productId &&
+                    (b.product_color_id === null || String(b.product_color_id) === String(item.variantId))
+                );
+                if (recipeRows.length > 0) {
+                    const consumptionPayload = recipeRows.map(r => ({
+                        order_item_id: insertedItem.id,
+                        material_id: r.material_id,
+                        quantity: r.quantity_required * item.qty
+                    }));
+                    const { error: qmError } = await supabase.from('quote_materials').insert(consumptionPayload);
+                    if (qmError) console.error('❌ Error registrando consumo de material:', qmError);
+                }
 
                 const { data: prod } = await supabase.from('products').select('stock_quantity').eq('id', item.productId).single();
                 if (prod) {
