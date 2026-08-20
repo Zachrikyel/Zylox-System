@@ -126,108 +126,6 @@ window.handleInputBlur = (key, section, value) => {
 // ============================================
 // 1. HOME SCREEN
 // ============================================
-// ============================================
-// 1.5 TYPE SELECTOR (FIL vs RESINA)
-// ============================================
-function TypeSelector() {
-  const Icons = getIcons();
-
-  return `
-    <div class="min-h-screen bg-transparent text-white flex flex-col p-6 animate-fade-in pt-4">
-      <div class="max-w-lg mx-auto w-full space-y-6">
-
-        <!-- Header -->
-        <div class="text-center mb-2">
-          <p class="text-[10px] font-mono text-zinc-500 tracking-[0.3em] uppercase">Selecciona el tipo de calculadora</p>
-        </div>
-
-        <div class="grid grid-cols-1 gap-4">
-
-          <!-- TARJETA FIL -->
-          <button onclick="navigateTo('calculator')" class="group relative overflow-hidden bg-zinc-900 border border-zinc-800 p-6 transition-all hover:border-cyan-500 text-left" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
-            <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <div class="flex items-start justify-between mb-4 relative z-10">
-              <div class="p-3 bg-zinc-800 border border-zinc-700 text-cyan-400 group-hover:text-white group-hover:bg-cyan-500 transition-colors">
-                <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"/><path d="M12 6v12M8 8l4-2 4 2M8 16l4 2 4-2"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
-              </div>
-              <span class="text-[10px] font-bold text-cyan-500 bg-cyan-500/10 px-2 py-1 tracking-widest">ACTIVO</span>
-            </div>
-            <h3 class="text-xl font-bold text-white mb-1 uppercase italic relative z-10">Filamento</h3>
-            <p class="text-xs text-zinc-400 font-mono relative z-10">Cotización para impresión 3D con filamento (FDM)</p>
-            <div class="mt-4 flex items-center gap-2 relative z-10">
-              <div class="h-[2px] flex-1 bg-gradient-to-r from-cyan-500/40 to-transparent"></div>
-              <span class="text-[9px] text-zinc-600 font-mono uppercase">PLA · PETG · ABS · TPU</span>
-            </div>
-          </button>
-
-          <!-- TARJETA RESINA -->
-          <button onclick="navigateTo('resin-home')" class="group relative overflow-hidden bg-zinc-900 border border-zinc-800 p-6 transition-all hover:border-amber-500/60 text-left opacity-70 hover:opacity-90" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
-            <div class="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <div class="flex items-start justify-between mb-4 relative z-10">
-              <div class="p-3 bg-zinc-800 border border-zinc-700 text-amber-400 group-hover:text-white group-hover:bg-amber-500/80 transition-colors">
-                <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 2C12 2 8 7 8 12a4 4 0 0 0 8 0c0-5-4-10-4-10z"/><path d="M6 19c0 1.7 2.7 3 6 3s6-1.3 6-3"/><line x1="12" y1="16" x2="12" y2="22"/></svg>
-              </div>
-              <span class="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 tracking-widest">PRÓXIMAMENTE</span>
-            </div>
-            <h3 class="text-xl font-bold text-white mb-1 uppercase italic relative z-10">Resina</h3>
-            <p class="text-xs text-zinc-400 font-mono relative z-10">Cotización para impresión 3D con resina (SLA/DLP)</p>
-            <div class="mt-4 flex items-center gap-2 relative z-10">
-              <div class="h-[2px] flex-1 bg-gradient-to-r from-amber-500/30 to-transparent"></div>
-              <span class="text-[9px] text-zinc-600 font-mono uppercase">EN DESARROLLO</span>
-            </div>
-          </button>
-
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-// ============================================
-// 1.6 RESIN HOME (PLACEHOLDER)
-// ============================================
-function ResinHome() {
-  const Icons = getIcons();
-
-  return `
-    <div class="min-h-screen bg-transparent text-white flex flex-col items-center justify-center p-6 animate-fade-in">
-      <div class="max-w-md w-full text-center space-y-6">
-
-        <div class="mx-auto w-20 h-20 bg-zinc-900 border border-zinc-800 flex items-center justify-center" style="clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);">
-          <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="text-amber-400">
-            <path d="M12 2C12 2 8 7 8 12a4 4 0 0 0 8 0c0-5-4-10-4-10z"/>
-            <path d="M6 19c0 1.7 2.7 3 6 3s6-1.3 6-3"/>
-            <line x1="12" y1="16" x2="12" y2="22"/>
-          </svg>
-        </div>
-
-        <div>
-          <h2 class="text-2xl font-black uppercase italic text-white mb-2">Calculadora Resina</h2>
-          <p class="text-sm text-zinc-500 font-mono">Este módulo está en desarrollo</p>
-        </div>
-
-        <div class="bg-zinc-900 border border-zinc-800 p-6" style="clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="w-2 h-2 bg-amber-500 animate-pulse"></div>
-            <span class="text-[10px] font-bold text-amber-500 tracking-widest uppercase">En construcción</span>
-          </div>
-          <p class="text-xs text-zinc-400 leading-relaxed text-left">
-            La calculadora de resina permitirá cotizar impresiones SLA/DLP con cálculos de volumen de resina, tiempos de curado UV, y costos específicos del proceso.
-          </p>
-        </div>
-
-        <button onclick="navigateTo('type-selector')" class="w-full py-3 bg-zinc-800 text-zinc-400 font-bold uppercase text-xs tracking-widest hover:bg-zinc-700 hover:text-white transition-colors border border-zinc-700">
-          ← Volver al selector
-        </button>
-
-      </div>
-    </div>
-  `;
-}
-
-// ============================================
-// 2. HOME SCREEN (FIL - ORIGINAL SIN CAMBIOS)
-// ============================================
 function HomeScreen() {
   const Icons = getIcons();
   setTimeout(() => window.loadDashboardStats && window.loadDashboardStats(), 100);
@@ -236,7 +134,7 @@ function HomeScreen() {
     <div class="min-h-screen bg-transparent text-white flex flex-col p-6 animate-fade-in pt-4">
       <div class="max-w-lg mx-auto w-full space-y-6">
         <div class="grid grid-cols-1 gap-4">
-          <button onclick="navigateTo('type-selector')" class="group relative overflow-hidden bg-zinc-900 border border-zinc-800 p-6 transition-all hover:border-cyan-500" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
+          <button onclick="navigateTo('calculator')" class="group relative overflow-hidden bg-zinc-900 border border-zinc-800 p-6 transition-all hover:border-cyan-500" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
             <div class="flex items-start justify-between mb-3 relative z-10">
               <div class="p-3 bg-zinc-800 border border-zinc-700 text-cyan-400 group-hover:text-white group-hover:bg-cyan-500 transition-colors">${Icons.Calculator(28)}</div>
               <span class="text-[10px] font-bold text-cyan-500 bg-cyan-500/10 px-2 py-1 tracking-widest">PRINCIPAL</span>
@@ -309,7 +207,7 @@ function Calculator() {
   const state = window.calculatorState;
 
   // HELPERS ORIGINALES
-  window.updateConfig = (key, value) => { state.config[key] = value; if (key === 'material') { const m = MATERIALS.find(x => x.id === value); state.print.coolMinutes = m.coolMinutes; state.print.colorSlots = [{ materialId: null, grams: 0 }]; state.print.materialCost = 0; } renderCalculatorWithScroll(); };
+  window.updateConfig = (key, value) => { state.config[key] = value; if (key === 'material') { const m = MATERIALS.find(x => x.id === value); state.print.coolMinutes = m.coolMinutes; } renderCalculatorWithScroll(); };
   window.updatePrint = (key, value) => { state.print[key] = value; renderCalculatorWithScroll(); };
   window.updateLabor = (key, value) => { state.labor[key] = value; if (key === 'complexity') { const margins = { simple: 25, easy: 30, medium: 35, hard: 40 }; if (margins[value]) state.pricing.profitMargin = margins[value]; } renderCalculatorWithScroll(); };
   window.updateLogistics = (key, value) => { state.logistics[key] = value; renderCalculatorWithScroll(); };
@@ -317,6 +215,9 @@ function Calculator() {
   // Recalcula print.materialCost sumando gramos*costo/kg de cada slot con color+gramos válidos.
   // No toca calculateQuote — sigue leyendo materialCost como un solo número, igual que siempre.
   const recomputeMaterialCost = () => {
+    if (!state.print.colorSlots || state.print.colorSlots.length === 0) {
+      state.print.colorSlots = [{ materialId: null, grams: 0 }];
+    }
     const rootId = FILAMENT_ROOTS[state.config.material];
     const cached = state._materialOptions && state._materialOptions[rootId];
     const items = cached && !cached.error ? cached.items : [];
@@ -462,6 +363,12 @@ function Calculator() {
   }
 
   else if (state.step === 2) {
+    // Cotizaciones cargadas desde el Historial (o cualquier otro camino que no pase por el
+    // estado inicial normal) pueden llegar sin colorSlots — garantiza que siempre sea un
+    // arreglo válido antes de que cualquier .map()/.forEach() de abajo lo toque.
+    if (!state.print.colorSlots || state.print.colorSlots.length === 0) {
+      state.print.colorSlots = [{ materialId: null, grams: 0 }];
+    }
     const selectedMaterial = MATERIALS.find(m => m.id === state.config.material);
     const filamentRootId = FILAMENT_ROOTS[state.config.material];
     const cachedFilament = state._materialOptions && state._materialOptions[filamentRootId];
@@ -724,24 +631,9 @@ function Calculator() {
                 <div>• Complejidad: <span class="text-white font-semibold">${complexityLabel}</span></div>
                 <div>• Primer: <span class="${preset.primerToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.primerToggle ? 'Sí' : 'No'}</span></div>
                 <div>• Laca: <span class="${preset.lacquerToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.lacquerToggle ? 'Sí' : 'No'}</span></div>
-                <div>• Lijado: <span class="${preset.sandingToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.sandingToggle ? 'Sí' : 'No'}</span></div>
-                <div>• Pintura: <span class="${preset.paintToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.paintToggle ? 'Sí' : 'No'}</span></div>
-                <div>• Pinceles: <span class="${preset.brushToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.brushToggle ? 'Sí' : 'No'}</span></div>
-                <div>• Otros Insumos: <span class="${preset.otherSuppliesToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.otherSuppliesToggle ? 'Sí' : 'No'}</span></div>
-                <div>• Super Glue: <span class="${preset.superglueToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.superglueToggle ? 'Sí' : 'No'}</span></div>
-                <div>• Soportes: <span class="${preset.supportsNeeded ? 'text-green-400' : 'text-zinc-600'}">${preset.supportsNeeded ? 'Sí' : 'No'}</span></div>
-                ${preset.supportsNeeded ? `<div>• Fragilidad: <span class="text-white font-semibold">${preset.supportsFragility}</span></div><div>• Cantidad Sop: <span class="text-white font-semibold">${preset.supportsAmount}</span></div>` : ''}
-                <div>• Envío: <span class="text-white font-semibold">${preset.shipping === 'pickup' ? 'Recogida' : preset.shipping === 'local' ? 'Local' : preset.shipping === 'nacional' ? 'Nacional' : 'Urgente'}</span></div>
-                <div>• Embalaje: <span class="text-white font-semibold">${preset.packagingType === 'box' ? '📦 Caja' : '🎒 Bolsa'} ${preset.packagingSize}</span></div>
-                ${preset.packagingSize === 'deluxe' ? `<div>• Costo Custom: <span class="text-white font-semibold">$${preset.packagingCustom}</span></div>` : ''}
+                <div>• Envío: <span class="text-white font-semibold">${preset.shipping === 'pickup' ? 'Recogida' : preset.shipping === 'local' ? 'Local' : 'Nacional'}</span></div>
+                <div>• Caja: <span class="text-white font-semibold">${preset.packagingSize === 'deluxe' ? 'Custom $' + preset.packagingCustom : 'Grande $5.000'}</span></div>
                 <div>• Envío Gratis: <span class="${preset.isFreeShipping ? 'text-green-400' : 'text-zinc-600'}">${preset.isFreeShipping ? 'Sí' : 'No'}</span></div>
-                <div>• Adicionales: <span class="${preset.additionalsToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.additionalsToggle ? 'Sí' : 'No'}</span></div>
-                <div>• Goma EVA: <span class="${preset.evaToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.evaToggle ? 'Sí' : 'No'}</span></div>
-                <div>• Vinilo: <span class="${preset.vinylToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.vinylToggle ? 'Sí' : 'No'}</span></div>
-                <div>• Plike: <span class="${preset.plikeToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.plikeToggle ? 'Sí' : 'No'}</span></div>
-                <div>• Burbuja: <span class="${preset.bubbleToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.bubbleToggle ? 'Sí' : 'No'}</span></div>
-                <div>• Colbón: <span class="${preset.glueToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.glueToggle ? 'Sí' : 'No'}</span></div>
-                <div>• Vinipel: <span class="${preset.vinipelToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.vinipelToggle ? 'Sí' : 'No'}</span></div>
               </div>
             </button>`;
           }).join('')}
@@ -1817,7 +1709,15 @@ window.editQuoteFromHistory = (id) => {
       editingId: quote.id,
       // Map DB field names to state field names
       config: quote.config || {},
-      print: quote.print_data || quote.print || {},
+      print: (() => {
+        const loaded = quote.print_data || quote.print || {};
+        // Cotizaciones guardadas antes de los slots de color no traen colorSlots — sin esto,
+        // el render truena con "can't access property map, colorSlots is undefined".
+        return {
+          ...loaded,
+          colorSlots: (loaded.colorSlots && loaded.colorSlots.length > 0) ? loaded.colorSlots : [{ materialId: null, grams: 0 }]
+        };
+      })(),
       labor: quote.labor || {},
       logistics: { ...(quote.logistics || {}), isFreeShipping: quote.is_free_shipping || (quote.logistics || {}).isFreeShipping || false },
       pricing: quote.pricing || {},
@@ -2012,8 +1912,6 @@ window.saveQuoteToDatabase = async () => {
 // EXPORT
 // ============================================
 window.Components = {
-  TypeSelector,
-  ResinHome,
   HomeScreen,
   Calculator,
   History,
