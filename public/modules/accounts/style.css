@@ -1,0 +1,283 @@
+/* ZYLOX CUENTAS THEME */
+
+:root {
+    --cyber-primary: #39FF14;
+    --cyber-secondary: #B026FF;
+    --cyber-cyan: #00F5FF;
+    --cyber-bg: rgba(10, 10, 10, 0.95);
+    --cyber-border: rgba(255, 255, 255, 0.1);
+}
+
+/* 1. ANIMACIONES */
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+/* 2. SCROLLBAR INVISIBLE */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* 3. INPUTS ESTILIZADOS */
+input[type="text"],
+input[type="number"],
+input[type="month"],
+select,
+textarea {
+    background-color: rgba(0, 0, 0, 0.6) !important;
+    border: 1px solid #333 !important;
+    color: white !important;
+    border-radius: 0 !important;
+}
+
+input:focus, select:focus, textarea:focus {
+    border-color: var(--cyber-primary) !important;
+    box-shadow: 0 0 15px rgba(57, 255, 20, 0.1);
+    outline: none;
+}
+
+/* Hide number spinners */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type=number] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+/* 4. INVENTORY ROW */
+.inventory-row {
+    background: rgba(20, 20, 25, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 3px solid var(--cyber-cyan);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.2s ease;
+    cursor: default;
+}
+
+.inventory-row:hover {
+    border-left-color: var(--cyber-primary);
+    background: rgba(30, 30, 35, 0.9);
+    transform: translateX(4px);
+}
+
+.capacity-zero {
+    color: #ef4444 !important;
+    font-weight: 700;
+}
+
+.capacity-ok {
+    color: var(--cyber-primary);
+    font-weight: 600;
+}
+
+.capacity-none {
+    color: #71717a;
+    font-style: italic;
+}
+
+/* 5. DASHBOARD CARDS */
+.dash-card {
+    background: linear-gradient(135deg, rgba(20, 20, 25, 0.9) 0%, rgba(10, 10, 12, 0.95) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+}
+
+.dash-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--card-accent, var(--cyber-primary));
+}
+
+.dash-card .card-value {
+    font-family: monospace;
+    font-size: 1.5rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.dash-card .card-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #71717a;
+    margin-top: 4px;
+}
+
+/* 6. CHART CONTAINER */
+.chart-box {
+    background: rgba(10, 10, 12, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 16px;
+    position: relative;
+}
+
+.chart-box canvas {
+    max-height: 220px;
+}
+
+.chart-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #71717a;
+    margin-bottom: 12px;
+    font-weight: 700;
+}
+
+/* 7. MODAL OVERLAY & SHEET */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(5px);
+    z-index: 200;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+}
+
+.modal-overlay.centered {
+    align-items: center;
+}
+
+.modal-overlay.hidden {
+    display: none;
+}
+
+.modal-sheet {
+    width: 100%;
+    max-width: 500px;
+    max-height: 85vh;
+    overflow-y: auto;
+    background: #0a0a0c;
+    border-top: 2px solid var(--cyber-primary);
+    border-radius: 20px 20px 0 0;
+    padding: 24px;
+    animation: slideUp 0.3s ease-out;
+}
+
+.modal-centered {
+    width: 100%;
+    max-width: 500px;
+    max-height: 85vh;
+    overflow-y: auto;
+    background: #0a0a0c;
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 24px;
+    animation: fadeIn 0.2s ease-out;
+    margin: 16px;
+}
+
+/* 8. TABS */
+.tab-bar {
+    display: flex;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 16px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #71717a;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+}
+
+.tab-btn:hover {
+    color: #a1a1aa;
+}
+
+.tab-btn.active {
+    color: var(--cyber-primary);
+    border-bottom-color: var(--cyber-primary);
+}
+
+/* 9. MOVEMENT HISTORY ITEM */
+.movement-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-left: 3px solid #333;
+    transition: background 0.2s;
+}
+
+.movement-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.movement-item.money {
+    border-left-color: var(--cyber-secondary);
+}
+
+.movement-item.material {
+    border-left-color: var(--cyber-cyan);
+}
+
+/* 10. VALIDATOR MODAL */
+.validator-product-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #222;
+    margin-bottom: 6px;
+}
+
+.validator-result-ok {
+    color: var(--cyber-primary);
+    font-weight: 700;
+}
+
+.validator-result-fail {
+    color: #ef4444;
+    font-weight: 700;
+}
+
+/* 11. FAB octagonal override */
+.fab-cyber {
+    clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+}
+
+/* 12. Badge helpers */
+.badge-stock {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
