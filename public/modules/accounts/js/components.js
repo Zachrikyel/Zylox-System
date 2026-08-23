@@ -82,14 +82,22 @@ const CuentasUI = {
 
             if (pErr) throw pErr;
 
-            // 2. All BOMs (incluyendo variantes de color)
+            // 2. Base recipes from sicma_quotes
+            const { data: quotes, error: qErr } = await supabase
+                .from('sicma_quotes')
+                .select('product_id, print_data')
+                .not('product_id', 'is', null);
+
+            if (qErr) throw qErr;
+
+            // 3. All BOMs (incluyendo variantes de color y legacy base)
             const { data: boms, error: bErr } = await supabase
                 .from('product_bom')
                 .select('product_id, material_id, quantity_required, product_color_id');
 
             if (bErr) throw bErr;
 
-            // 3. Stock de materiales
+            // 4. Stock de materiales
             const { data: mats, error: mErr } = await supabase
                 .from('materials')
                 .select('id, current_quantity');
@@ -99,28 +107,66 @@ const CuentasUI = {
             const matStock = {};
             (mats || []).forEach(m => { matStock[m.id] = m.current_quantity || 0; });
 
-            // Agrupar BOMs por producto y luego por color
-            const productRecipes = {};
-            (boms || []).forEach(b => {
-                if (!productRecipes[b.product_id]) productRecipes[b.product_id] = {};
-                const colorKey = b.product_color_id || 'base';
-                if (!productRecipes[b.product_id][colorKey]) productRecipes[b.product_id][colorKey] = [];
-                productRecipes[b.product_id][colorKey].push(b);
+            // Construir recetas base (desde cotizaciones)
+            const baseRecipes = {};
+            (quotes || []).forEach(q => {
+                const slots = q.print_data?.colorSlots || [];
+                const validSlots = slots.filter(s => s.materialId && s.grams > 0);
+                if (validSlots.length > 0) {
+                    baseRecipes[q.product_id] = validSlots.map(s => ({
+                        material_id: Number(s.materialId),
+                        quantity_required: Number(s.grams)
+                    }));
+                }
             });
 
-            // Calcular capacidad por producto (usamos la MAX capacidad entre sus variantes)
+            const extraRecipes = {};
+            (boms || []).forEach(b => {
+                if (!b.product_color_id) {
+                    // Legacy base recipe (si no hay quote o es un producto viejo)
+                    if (!baseRecipes[b.product_id]) baseRecipes[b.product_id] = [];
+                    baseRecipes[b.product_id].push({ material_id: b.material_id, quantity_required: b.quantity_required });
+                } else {
+                    // Extra materials por variante de color
+                    if (!extraRecipes[b.product_id]) extraRecipes[b.product_id] = {};
+                    if (!extraRecipes[b.product_id][b.product_color_id]) extraRecipes[b.product_id][b.product_color_id] = [];
+                    extraRecipes[b.product_id][b.product_color_id].push({ material_id: b.material_id, quantity_required: b.quantity_required });
+                }
+            });
+
+            // Calcular capacidad por producto
             const enriched = (products || []).map(p => {
                 let maxCapacity = null;
-                const recipes = productRecipes[p.id];
+                const bRecipe = baseRecipes[p.id];
+                const variants = extraRecipes[p.id] || {};
+
+                const allVariantKeys = Object.keys(variants);
+                const colorVariations = [];
                 
-                if (recipes) {
+                if (bRecipe && bRecipe.length > 0) {
+                    colorVariations.push(bRecipe); // Solo la base
+                    for (const vKey of allVariantKeys) {
+                        colorVariations.push([...bRecipe, ...variants[vKey]]); // Base + Variante
+                    }
+                } else if (allVariantKeys.length > 0) {
+                    // Producto sin base, pero con variantes
+                    for (const vKey of allVariantKeys) {
+                        colorVariations.push(variants[vKey]);
+                    }
+                }
+
+                if (colorVariations.length > 0) {
                     maxCapacity = 0;
-                    for (const colorKey in recipes) {
-                        const recipe = recipes[colorKey];
+                    for (const recipe of colorVariations) {
+                        const reqsByMat = {};
+                        for (const r of recipe) {
+                            reqsByMat[r.material_id] = (reqsByMat[r.material_id] || 0) + r.quantity_required;
+                        }
+
                         let colorCapacity = Infinity;
-                        for (const req of recipe) {
-                            const available = matStock[req.material_id] || 0;
-                            const needed = req.quantity_required;
+                        for (const matId in reqsByMat) {
+                            const needed = reqsByMat[matId];
+                            const available = matStock[matId] || 0;
                             if (needed > 0) {
                                 const possible = Math.floor(available / needed);
                                 if (possible < colorCapacity) colorCapacity = possible;
@@ -134,8 +180,10 @@ const CuentasUI = {
 
                 return {
                     ...p,
-                    hasRecipe: !!recipes,
-                    capacity: maxCapacity
+                    hasRecipe: colorVariations.length > 0,
+                    capacity: maxCapacity,
+                    baseRecipe: bRecipe || [],
+                    extraRecipes: variants
                 };
             });
 
@@ -149,12 +197,92 @@ const CuentasUI = {
 
             CuentasUI._products = enriched;
             CuentasUI._allProducts = enriched;
+            if (!CuentasUI._selectedProductIds) CuentasUI._selectedProductIds = new Set();
+            
             CuentasUI.renderInventoryList(enriched);
+            CuentasUI.ensureFabExists();
 
         } catch (e) {
             console.error('Error cargando inventario:', e);
             container.innerHTML = '<div class="text-center text-red-400 text-xs mt-8">Error al cargar inventario</div>';
         }
+    },
+
+    ensureFabExists: () => {
+        let fab = document.getElementById('validator-fab');
+        if (!fab) {
+            fab = document.createElement('div');
+            fab.id = 'validator-fab';
+            fab.className = 'fixed bottom-6 right-6 hidden z-50';
+            fab.innerHTML = `
+                <button onclick="CuentasUI.openValidatorFromFab()" class="bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-900/50 rounded-full h-14 px-6 flex items-center gap-2 font-bold uppercase tracking-widest text-xs transition-all transform hover:scale-105 border border-purple-400">
+                    <i class="ph ph-check-square text-xl"></i>
+                    Validar (<span id="validator-fab-count">0</span>)
+                </button>
+            `;
+            document.body.appendChild(fab);
+        }
+        CuentasUI.updateFab();
+    },
+
+    updateFab: () => {
+        const fab = document.getElementById('validator-fab');
+        if (!fab) return;
+        const count = CuentasUI._selectedProductIds.size;
+        const isInventoryView = !document.getElementById('view-inventory').classList.contains('hidden');
+        
+        if (count > 0 && isInventoryView) {
+            fab.classList.remove('hidden');
+            document.getElementById('validator-fab-count').innerText = count;
+        } else {
+            fab.classList.add('hidden');
+        }
+    },
+
+    toggleProductSelection: (id, element) => {
+        if (CuentasUI._selectedProductIds.has(id)) {
+            CuentasUI._selectedProductIds.delete(id);
+            element.classList.remove('border-purple-500', 'border-2');
+            element.classList.add('border-zinc-800', 'border');
+        } else {
+            CuentasUI._selectedProductIds.add(id);
+            element.classList.remove('border-zinc-800', 'border');
+            element.classList.add('border-purple-500', 'border-2');
+        }
+        CuentasUI.updateFab();
+    },
+
+    openValidatorFromFab: () => {
+        CuentasUI._validatorItems = [];
+        for (const id of CuentasUI._selectedProductIds) {
+            const p = CuentasUI._allProducts.find(x => x.id === id);
+            if (p) CuentasUI._validatorItems.push({ id: p.id, name: p.name, qty: 1 });
+        }
+
+        let modal = document.getElementById('modal-validator');
+        if (modal) modal.remove();
+
+        modal = document.createElement('div');
+        modal.id = 'modal-validator';
+        modal.className = 'modal-overlay centered';
+        modal.innerHTML = `
+        <div class="modal-centered no-scrollbar">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-cyan-400 uppercase tracking-wider">Validar Pedido</h3>
+                <button onclick="document.getElementById('modal-validator').remove()" class="text-zinc-500 hover:text-white text-xl">✕</button>
+            </div>
+            <div id="validator-selection" class="space-y-1 mb-4 max-h-40 overflow-y-auto no-scrollbar"></div>
+            <div id="validator-results" class="mb-4"></div>
+            <button onclick="CuentasUI.runValidation()"
+                class="w-full py-3 bg-cyan-500 text-black font-bold uppercase text-xs tracking-widest hover:bg-cyan-400 transition-colors">
+                <i class="ph ph-check-circle mr-1"></i> Calcular Materiales
+            </button>
+        </div>`;
+        document.body.appendChild(modal);
+
+        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+        CuentasUI._renderValidatorSelection();
     },
 
     // =============================================================
@@ -172,7 +300,6 @@ const CuentasUI = {
             return;
         }
 
-        // Helpers de extracción compartidos con parent
         const extractId = window.parent?.extractDriveId || (url => {
             if (!url) return null;
             const match = url.match(/(?:id=|\/d\/)([a-zA-Z0-9_-]+)/);
@@ -198,8 +325,11 @@ const CuentasUI = {
                 capHtml = `<span class="text-cyan-400 font-mono text-[10px] uppercase font-bold block text-right mt-1 tracking-wider">Fabricables: ${p.capacity}</span>`;
             }
 
+            const isSelected = CuentasUI._selectedProductIds.has(p.id);
+            const borderClass = isSelected ? 'border-purple-500 border-2' : 'border-zinc-800 border';
+
             return `
-            <div class="bg-zinc-900 border border-zinc-800 h-28 flex hover:border-cyan-500 transition-all group overflow-hidden relative mb-2" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
+            <div onclick="CuentasUI.toggleProductSelection(${p.id}, this)" class="bg-zinc-900 ${borderClass} h-28 flex transition-all cursor-pointer group overflow-hidden relative mb-2" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
                 <div class="w-24 h-full bg-zinc-950 flex-shrink-0 relative border-r border-zinc-800">
                     ${url
                     ? `<img src="${url}" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />`
@@ -249,91 +379,21 @@ const CuentasUI = {
     },
 
     // =============================================================
-    // VALIDAR PEDIDO — MODAL
+    // VALIDAR PEDIDO — MODAL & SELECCIÓN
     // =============================================================
-    openValidator: () => {
-        const existing = document.getElementById('validator-modal');
-        if (existing) existing.remove();
-
-        const modal = document.createElement('div');
-        modal.id = 'validator-modal';
-        modal.className = 'modal-overlay centered';
-        modal.innerHTML = `
-        <div class="modal-centered no-scrollbar">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-cyan-400 uppercase tracking-wider">Validar Pedido</h3>
-                <button onclick="document.getElementById('validator-modal').remove()" class="text-zinc-500 hover:text-white text-xl">✕</button>
-            </div>
-
-            <div class="mb-4">
-                <input type="text" id="validator-search" placeholder="Buscar producto para agregar..."
-                    class="w-full px-3 py-2 text-sm" oninput="CuentasUI._filterValidatorProducts(this.value)">
-                <div id="validator-suggestions" class="max-h-32 overflow-y-auto mt-1 no-scrollbar"></div>
-            </div>
-
-            <div id="validator-selection" class="space-y-1 mb-4 max-h-40 overflow-y-auto no-scrollbar"></div>
-
-            <div id="validator-results" class="mb-4"></div>
-
-            <button onclick="CuentasUI.runValidation()"
-                class="w-full py-3 bg-cyan-500 text-black font-bold uppercase text-xs tracking-widest hover:bg-cyan-400 transition-colors">
-                <i class="ph ph-check-circle mr-1"></i> Validar
-            </button>
-        </div>`;
-        document.body.appendChild(modal);
-
-        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
-
-        // Init state
-        CuentasUI._validatorItems = [];
-    },
-
     _validatorItems: [],
-
-    _filterValidatorProducts: (query) => {
-        const suggestions = document.getElementById('validator-suggestions');
-        const q = (query || '').toLowerCase().trim();
-        if (!q) { suggestions.innerHTML = ''; return; }
-
-        const matches = CuentasUI._allProducts
-            .filter(p => p.hasRecipe && (
-                (p.name && p.name.toLowerCase().includes(q)) ||
-                (p.sku && p.sku.toLowerCase().includes(q))
-            ))
-            .slice(0, 6);
-
-        suggestions.innerHTML = matches.map(p => `
-            <div onclick="CuentasUI._addValidatorItem(${p.id}, '${p.name.replace(/'/g, "\\'")}')"
-                 class="px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 cursor-pointer border-b border-zinc-800/50 flex justify-between">
-                <span>${p.name}</span>
-                <span class="text-zinc-600">${p.sku || ''}</span>
-            </div>
-        `).join('');
-    },
-
-    _addValidatorItem: (productId, productName) => {
-        if (CuentasUI._validatorItems.find(v => v.id === productId)) {
-            Utils.notify('Producto ya agregado', 'warning');
-            return;
-        }
-        CuentasUI._validatorItems.push({ id: productId, name: productName, qty: 1 });
-        document.getElementById('validator-search').value = '';
-        document.getElementById('validator-suggestions').innerHTML = '';
-        document.getElementById('validator-results').innerHTML = '';
-        CuentasUI._renderValidatorSelection();
-    },
 
     _renderValidatorSelection: () => {
         const container = document.getElementById('validator-selection');
         container.innerHTML = CuentasUI._validatorItems.map((item, idx) => `
-            <div class="validator-product-row">
-                <span class="flex-1 text-xs text-white truncate">${item.name}</span>
-                <div class="flex items-center gap-1">
-                    <button onclick="CuentasUI._adjustValidatorQty(${idx}, -1)" class="w-6 h-6 bg-zinc-800 text-white text-xs flex items-center justify-center hover:bg-zinc-700">-</button>
+            <div class="validator-product-row flex items-center justify-between bg-zinc-900 border border-zinc-800 p-2 mb-2 rounded">
+                <span class="flex-1 text-xs text-white truncate pr-2">${item.name}</span>
+                <div class="flex items-center gap-2">
+                    <button onclick="CuentasUI._adjustValidatorQty(${idx}, -1)" class="w-6 h-6 bg-zinc-800 text-white text-xs flex items-center justify-center hover:bg-zinc-700 rounded">-</button>
                     <span class="text-sm font-mono text-cyan-400 w-6 text-center">${item.qty}</span>
-                    <button onclick="CuentasUI._adjustValidatorQty(${idx}, 1)" class="w-6 h-6 bg-zinc-800 text-white text-xs flex items-center justify-center hover:bg-zinc-700">+</button>
+                    <button onclick="CuentasUI._adjustValidatorQty(${idx}, 1)" class="w-6 h-6 bg-zinc-800 text-white text-xs flex items-center justify-center hover:bg-zinc-700 rounded">+</button>
+                    <button onclick="CuentasUI._removeValidatorItem(${idx}, ${item.id})" class="text-red-500 hover:text-red-400 text-xs ml-2">✕</button>
                 </div>
-                <button onclick="CuentasUI._removeValidatorItem(${idx})" class="text-red-500 hover:text-red-400 text-xs ml-1">✕</button>
             </div>
         `).join('');
     },
@@ -345,9 +405,18 @@ const CuentasUI = {
         CuentasUI._renderValidatorSelection();
     },
 
-    _removeValidatorItem: (index) => {
+    _removeValidatorItem: (index, productId) => {
         CuentasUI._validatorItems.splice(index, 1);
+        CuentasUI._selectedProductIds.delete(productId);
+        
+        // Refresh cards border in background
+        CuentasUI.renderInventoryList(CuentasUI._allProducts);
+        CuentasUI.updateFab();
+        
         CuentasUI._renderValidatorSelection();
+        if (CuentasUI._validatorItems.length === 0) {
+            document.getElementById('modal-validator').classList.add('hidden');
+        }
     },
 
     // =============================================================
@@ -368,40 +437,47 @@ const CuentasUI = {
         if (!supabase) return;
 
         try {
-            // 1. Obtener todas las recetas de los productos seleccionados (incluyendo variantes)
-            const productIds = items.map(i => i.id);
-            const { data: bomRows, error: bErr } = await supabase
-                .from('product_bom')
-                .select('product_id, material_id, quantity_required, product_color_id')
-                .in('product_id', productIds);
-
-            if (bErr) throw bErr;
-
-            // Agrupar por producto y color
-            const productRecipe = {}; // { product_id: { color_id: [ { material_id, qty } ] } }
-            for (const row of bomRows) {
-                if (!productRecipe[row.product_id]) {
-                    productRecipe[row.product_id] = {};
-                }
-                const cId = row.product_color_id || 'base';
-                if (!productRecipe[row.product_id][cId]) {
-                    productRecipe[row.product_id][cId] = [];
-                }
-                productRecipe[row.product_id][cId].push(row);
-            }
-
-            // 2. Calcular requerimiento total
+            // Calcular requerimiento total usando los datos que ya cargó loadInventory
             const requirements = {}; // { material_id: totalNeeded }
+            
             for (const item of items) {
-                const colors = productRecipe[item.id];
-                if (colors) {
-                    // Tomamos la primera receta disponible como caso base
-                    const firstColorKey = Object.keys(colors)[0];
-                    const recipe = colors[firstColorKey];
-                    for (const r of recipe) {
-                        const matId = r.material_id;
+                const prod = CuentasUI._allProducts.find(p => p.id === item.id);
+                if (prod && prod.hasRecipe) {
+                    const reqsByMat = {};
+                    
+                    // Sumamos la receta base primero
+                    if (prod.baseRecipe) {
+                        for (const r of prod.baseRecipe) {
+                            reqsByMat[r.material_id] = (reqsByMat[r.material_id] || 0) + r.quantity_required;
+                        }
+                    }
+                    
+                    // Para ser conservadores (worst-case), buscamos la variante que más material extra consuma
+                    let maxExtraReqs = {};
+                    let maxExtraTotal = 0;
+                    
+                    for (const vKey in prod.extraRecipes) {
+                        const vReqs = {};
+                        let vTotal = 0;
+                        for (const r of prod.extraRecipes[vKey]) {
+                            vReqs[r.material_id] = (vReqs[r.material_id] || 0) + r.quantity_required;
+                            vTotal += r.quantity_required;
+                        }
+                        if (vTotal > maxExtraTotal) {
+                            maxExtraTotal = vTotal;
+                            maxExtraReqs = vReqs;
+                        }
+                    }
+
+                    // Agregamos la peor variante a la base
+                    for (const matId in maxExtraReqs) {
+                        reqsByMat[matId] = (reqsByMat[matId] || 0) + maxExtraReqs[matId];
+                    }
+
+                    // Multiplicamos por la cantidad y agregamos a totales
+                    for (const matId in reqsByMat) {
                         if (!requirements[matId]) requirements[matId] = 0;
-                        requirements[matId] += r.quantity_required * item.qty;
+                        requirements[matId] += reqsByMat[matId] * item.qty;
                     }
                 }
             }
@@ -412,7 +488,7 @@ const CuentasUI = {
                 return;
             }
 
-            // 3. Obtener stock actual de esos materiales
+            // 3. Obtener stock actual de esos materiales directo de Supabase para tener el dato más fresco
             const { data: mats, error: mErr } = await supabase
                 .from('materials')
                 .select('id, name, current_quantity, unit_measure')
