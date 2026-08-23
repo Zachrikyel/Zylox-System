@@ -178,7 +178,7 @@ const CuentasUI = {
             const match = url.match(/(?:id=|\/d\/)([a-zA-Z0-9_-]+)/);
             return match ? match[1] : null;
         });
-        const getUrl = window.parent?.getDriveImageUrl || (id => id ? \`/api/drive-proxy?id=\${id}\` : '');
+        const getUrl = window.parent?.getDriveImageUrl || (id => id ? `/api/drive-proxy?id=${id}` : '');
 
         container.innerHTML = items.map(p => {
             const driveId = extractId(p.card_middle_url);
@@ -193,42 +193,42 @@ const CuentasUI = {
             if (p.capacity === null) {
                 capHtml = '<span class="text-zinc-600 font-mono text-[9px] uppercase tracking-widest block text-right mt-1">Sin receta</span>';
             } else if (p.capacity <= 0) {
-                capHtml = \`<span class="text-red-500 font-mono text-[10px] uppercase font-bold block text-right mt-1 tracking-wider">Fabricables: 0</span>\`;
+                capHtml = `<span class="text-red-500 font-mono text-[10px] uppercase font-bold block text-right mt-1 tracking-wider">Fabricables: 0</span>`;
             } else {
-                capHtml = \`<span class="text-cyan-400 font-mono text-[10px] uppercase font-bold block text-right mt-1 tracking-wider">Fabricables: \${p.capacity}</span>\`;
+                capHtml = `<span class="text-cyan-400 font-mono text-[10px] uppercase font-bold block text-right mt-1 tracking-wider">Fabricables: ${p.capacity}</span>`;
             }
 
-            return \`
+            return `
             <div class="bg-zinc-900 border border-zinc-800 h-28 flex hover:border-cyan-500 transition-all group overflow-hidden relative mb-2" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
                 <div class="w-24 h-full bg-zinc-950 flex-shrink-0 relative border-r border-zinc-800">
-                    \${url
-                    ? \`<img src="\${url}" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />\`
-                    : \`<div class="w-full h-full flex items-center justify-center text-zinc-700"><i class="ph ph-image-square text-2xl"></i></div>\`
+                    ${url
+                    ? `<img src="${url}" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />`
+                    : `<div class="w-full h-full flex items-center justify-center text-zinc-700"><i class="ph ph-image-square text-2xl"></i></div>`
                     }
                     <div class="absolute top-0 left-0 bg-black/80 px-1.5 py-0.5 text-[8px] font-mono text-zinc-400 border-b border-r border-zinc-800">
-                        \${p.is_stock_item ? '📦 STOCK' : '🎨 CUSTOM'}
+                        ${p.is_stock_item ? '📦 STOCK' : '🎨 CUSTOM'}
                     </div>
                 </div>
 
                 <div class="flex-1 p-3 flex flex-col justify-between">
                     <div>
-                        <h3 class="text-sm font-bold text-white uppercase leading-tight line-clamp-2">\${p.name} \${pubStatus}\${freeShipBadge}</h3>
-                        <span class="text-[10px] font-mono text-zinc-500 mt-0.5 block tracking-widest">\${p.sku || '—'}</span>
+                        <h3 class="text-sm font-bold text-white uppercase leading-tight line-clamp-2">${p.name} ${pubStatus}${freeShipBadge}</h3>
+                        <span class="text-[10px] font-mono text-zinc-500 mt-0.5 block tracking-widest">${p.sku || '—'}</span>
                     </div>
 
                     <div class="flex items-end justify-between border-t border-white/5 pt-2">
                         <div class="flex flex-col">
                             <span class="text-[9px] text-zinc-600 uppercase">Venta</span>
-                            <span class="text-sm font-mono font-bold text-[#39FF14]">\${Utils.formatCurrency(p.sale_price)}</span>
+                            <span class="text-sm font-mono font-bold text-[#39FF14]">${Utils.formatCurrency(p.sale_price)}</span>
                         </div>
                         <div class="flex flex-col items-end">
                             <span class="text-[9px] text-zinc-600 uppercase">Stock Actual</span>
-                            <span class="text-xs font-mono \${stockColor}">\${stockQty} un.</span>
-                            \${capHtml}
+                            <span class="text-xs font-mono ${stockColor}">${stockQty} un.</span>
+                            ${capHtml}
                         </div>
                     </div>
                 </div>
-            </div>\`;
+            </div>`;
         }).join('');
     },
 
