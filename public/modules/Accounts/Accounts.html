@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zylox Cuentas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="../../core/styles.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+
+<body class="bg-transparent text-white font-sans overflow-hidden selection:bg-[#39FF14]/30">
+
+    <div id="app" class="h-screen flex flex-col relative">
+
+        <div id="view-home"
+            class="absolute inset-0 flex flex-col p-6 animate-fade-in z-50 overflow-y-auto justify-center bg-zinc-900/10 backdrop-blur-sm">
+            <div class="max-w-3xl mx-auto w-full space-y-6">
+                <div class="text-center mb-2">
+                    <div class="text-5xl mb-2">🐈‍⬛</div>
+                    <h1 class="text-xl font-black uppercase italic tracking-tighter text-cyan-400">Cuentas</h1>
+                    <p class="text-[10px] text-zinc-600 font-mono uppercase">Michi vigila el inventario y la plata</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button onclick="CuentasUI.switchView('inventory')"
+                        class="group relative bg-zinc-900/80 border border-zinc-800 p-6 hover:border-cyan-500 transition-all text-left cyber-shape backdrop-blur-md">
+                        <div class="absolute top-4 right-4 text-zinc-700 group-hover:text-cyan-400 transition-colors">
+                            <i class="ph ph-cube text-4xl"></i></div>
+                        <h2 class="text-2xl font-black text-white uppercase italic mb-2 group-hover:text-cyan-400 tracking-tighter">
+                            Inventario</h2>
+                        <p class="text-xs text-zinc-500 font-mono">Cuánto te alcanza, por producto.</p>
+                    </button>
+                    <button onclick="CuentasUI.switchView('dashboard')"
+                        class="group relative bg-zinc-900/80 border border-zinc-800 p-6 hover:border-purple-500 transition-all text-left cyber-shape backdrop-blur-md">
+                        <div class="absolute top-4 right-4 text-zinc-700 group-hover:text-purple-500 transition-colors">
+                            <i class="ph ph-chart-donut text-4xl"></i></div>
+                        <h2 class="text-2xl font-black text-white uppercase italic mb-2 group-hover:text-purple-500 tracking-tighter">
+                            Dashboard</h2>
+                        <p class="text-xs text-zinc-500 font-mono">Ganancia, ganancia real, costo operativo.</p>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-inventory" class="absolute inset-0 hidden flex-col animate-fade-in z-40">
+            <div class="p-4 border-b border-zinc-800 flex items-center gap-3">
+                <button onclick="CuentasUI.switchView('home')" class="text-zinc-500 hover:text-white"><i class="ph ph-arrow-left text-xl"></i></button>
+                <input type="text" id="inventory-search" oninput="CuentasUI.filterInventory(this.value)" placeholder="Buscar producto..."
+                    class="flex-1 bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500" />
+            </div>
+            <div id="inventory-container" class="flex-1 overflow-y-auto p-4 space-y-2 pb-24"></div>
+            <button onclick="CuentasUI.openValidator()"
+                class="absolute bottom-5 right-5 bg-cyan-500 text-black w-14 h-14 rounded-full flex items-center justify-center shadow-lg shadow-cyan-500/30 hover:bg-cyan-400 transition-colors">
+                <i class="ph ph-check-square text-2xl"></i>
+            </button>
+        </div>
+
+        <div id="view-dashboard" class="absolute inset-0 hidden flex-col animate-fade-in z-40 overflow-y-auto">
+            <div class="p-4 border-b border-zinc-800 flex items-center gap-3 sticky top-0 bg-black/80 backdrop-blur-md z-10">
+                <button onclick="CuentasUI.switchView('home')" class="text-zinc-500 hover:text-white"><i class="ph ph-arrow-left text-xl"></i></button>
+                <input type="month" id="dashboard-month" onchange="CuentasUI.loadDashboard()"
+                    class="bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500" />
+            </div>
+            <div id="dashboard-container" class="p-4 space-y-4 pb-24"></div>
+            <button onclick="CuentasUI.openMovementForm()"
+                class="fixed bottom-5 right-5 bg-purple-500 text-black w-14 h-14 rounded-full flex items-center justify-center shadow-lg shadow-purple-500/30 hover:bg-purple-400 transition-colors">
+                <i class="ph ph-plus text-2xl"></i>
+            </button>
+        </div>
+
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/boot.js"></script>
+</body>
+
+</html>
