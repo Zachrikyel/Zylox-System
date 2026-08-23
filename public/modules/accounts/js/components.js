@@ -77,40 +77,75 @@ const CuentasUI = {
             // 1. Productos publicados
             const { data: products, error: pErr } = await supabase
                 .from('products')
-                .select('id, name, sku, is_stock_item')
-                .eq('is_published', true)
-                .order('name', { ascending: true });
+                .select('id, name, sku, is_stock_item, card_middle_url, sale_price, stock_quantity, is_published, is_free_shipping')
+                .eq('is_published', true);
 
             if (pErr) throw pErr;
 
-            // 2. Capacidades (vista product_capacity)
-            const { data: capacities, error: cErr } = await supabase
-                .from('product_capacity')
-                .select('product_id, max_units');
-
-            if (cErr) throw cErr;
-
-            // 3. Verificar cuáles tienen receta (product_bom base)
+            // 2. All BOMs (incluyendo variantes de color)
             const { data: boms, error: bErr } = await supabase
                 .from('product_bom')
-                .select('product_id')
-                .is('product_color_id', null);
+                .select('product_id, material_id, quantity_required, product_color_id');
 
             if (bErr) throw bErr;
 
-            // Mapas
-            const capMap = {};
-            (capacities || []).forEach(c => { capMap[c.product_id] = c.max_units; });
+            // 3. Stock de materiales
+            const { data: mats, error: mErr } = await supabase
+                .from('materials')
+                .select('id, current_quantity');
 
-            const bomSet = new Set();
-            (boms || []).forEach(b => bomSet.add(b.product_id));
+            if (mErr) throw mErr;
 
-            // Combinar
-            const enriched = (products || []).map(p => ({
-                ...p,
-                hasRecipe: bomSet.has(p.id),
-                capacity: bomSet.has(p.id) ? (capMap[p.id] ?? 0) : null
-            }));
+            const matStock = {};
+            (mats || []).forEach(m => { matStock[m.id] = m.current_quantity || 0; });
+
+            // Agrupar BOMs por producto y luego por color
+            const productRecipes = {};
+            (boms || []).forEach(b => {
+                if (!productRecipes[b.product_id]) productRecipes[b.product_id] = {};
+                const colorKey = b.product_color_id || 'base';
+                if (!productRecipes[b.product_id][colorKey]) productRecipes[b.product_id][colorKey] = [];
+                productRecipes[b.product_id][colorKey].push(b);
+            });
+
+            // Calcular capacidad por producto (usamos la MAX capacidad entre sus variantes)
+            const enriched = (products || []).map(p => {
+                let maxCapacity = null;
+                const recipes = productRecipes[p.id];
+                
+                if (recipes) {
+                    maxCapacity = 0;
+                    for (const colorKey in recipes) {
+                        const recipe = recipes[colorKey];
+                        let colorCapacity = Infinity;
+                        for (const req of recipe) {
+                            const available = matStock[req.material_id] || 0;
+                            const needed = req.quantity_required;
+                            if (needed > 0) {
+                                const possible = Math.floor(available / needed);
+                                if (possible < colorCapacity) colorCapacity = possible;
+                            }
+                        }
+                        if (colorCapacity > maxCapacity && colorCapacity !== Infinity) {
+                            maxCapacity = colorCapacity;
+                        }
+                    }
+                }
+
+                return {
+                    ...p,
+                    hasRecipe: !!recipes,
+                    capacity: maxCapacity
+                };
+            });
+
+            // Ordenar: de mayor capacidad a menor, luego por nombre
+            enriched.sort((a, b) => {
+                const capA = a.capacity || 0;
+                const capB = b.capacity || 0;
+                if (capA !== capB) return capB - capA;
+                return a.name.localeCompare(b.name);
+            });
 
             CuentasUI._products = enriched;
             CuentasUI._allProducts = enriched;
@@ -137,29 +172,63 @@ const CuentasUI = {
             return;
         }
 
+        // Helpers de extracción compartidos con parent
+        const extractId = window.parent?.extractDriveId || (url => {
+            if (!url) return null;
+            const match = url.match(/(?:id=|\/d\/)([a-zA-Z0-9_-]+)/);
+            return match ? match[1] : null;
+        });
+        const getUrl = window.parent?.getDriveImageUrl || (id => id ? \`/api/drive-proxy?id=\${id}\` : '');
+
         container.innerHTML = items.map(p => {
-            const typeIcon = p.is_stock_item
-                ? '<i class="ph ph-package text-lg text-cyan-400" title="Stock"></i>'
-                : '<i class="ph ph-paint-brush text-lg text-purple-400" title="Custom"></i>';
+            const driveId = extractId(p.card_middle_url);
+            const url = getUrl(driveId);
+            
+            const stockQty = p.stock_quantity || 0;
+            const stockColor = stockQty > 20 ? 'text-[#39FF14]' : (stockQty > 5 ? 'text-yellow-400' : 'text-red-500');
+            const pubStatus = !p.is_published ? '<span class="text-red-500 text-[8px] border border-red-500 px-1 ml-1">OCULTO</span>' : '';
+            const freeShipBadge = p.is_free_shipping ? '<span class="text-green-400 text-[8px] border border-green-500/50 bg-green-500/10 px-1 ml-1">🚚 FREE</span>' : '';
 
             let capHtml;
             if (p.capacity === null) {
-                capHtml = '<span class="capacity-none text-[10px] font-mono">Sin receta</span>';
+                capHtml = '<span class="text-zinc-600 font-mono text-[9px] uppercase tracking-widest block text-right mt-1">Sin receta</span>';
             } else if (p.capacity <= 0) {
-                capHtml = `<span class="capacity-zero text-sm font-mono">${Math.floor(p.capacity)} uds</span>`;
+                capHtml = \`<span class="text-red-500 font-mono text-[10px] uppercase font-bold block text-right mt-1 tracking-wider">Fabricables: 0</span>\`;
             } else {
-                capHtml = `<span class="capacity-ok text-sm font-mono">${Math.floor(p.capacity)} uds</span>`;
+                capHtml = \`<span class="text-cyan-400 font-mono text-[10px] uppercase font-bold block text-right mt-1 tracking-wider">Fabricables: \${p.capacity}</span>\`;
             }
 
-            return `
-            <div class="inventory-row">
-                <div class="shrink-0">${typeIcon}</div>
-                <div class="flex-1 min-w-0">
-                    <div class="text-sm font-bold text-white truncate">${p.name}</div>
-                    <div class="text-[10px] text-zinc-500 font-mono">${p.sku || '—'}</div>
+            return \`
+            <div class="bg-zinc-900 border border-zinc-800 h-28 flex hover:border-cyan-500 transition-all group overflow-hidden relative mb-2" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
+                <div class="w-24 h-full bg-zinc-950 flex-shrink-0 relative border-r border-zinc-800">
+                    \${url
+                    ? \`<img src="\${url}" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />\`
+                    : \`<div class="w-full h-full flex items-center justify-center text-zinc-700"><i class="ph ph-image-square text-2xl"></i></div>\`
+                    }
+                    <div class="absolute top-0 left-0 bg-black/80 px-1.5 py-0.5 text-[8px] font-mono text-zinc-400 border-b border-r border-zinc-800">
+                        \${p.is_stock_item ? '📦 STOCK' : '🎨 CUSTOM'}
+                    </div>
                 </div>
-                <div class="text-right shrink-0">${capHtml}</div>
-            </div>`;
+
+                <div class="flex-1 p-3 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-white uppercase leading-tight line-clamp-2">\${p.name} \${pubStatus}\${freeShipBadge}</h3>
+                        <span class="text-[10px] font-mono text-zinc-500 mt-0.5 block tracking-widest">\${p.sku || '—'}</span>
+                    </div>
+
+                    <div class="flex items-end justify-between border-t border-white/5 pt-2">
+                        <div class="flex flex-col">
+                            <span class="text-[9px] text-zinc-600 uppercase">Venta</span>
+                            <span class="text-sm font-mono font-bold text-[#39FF14]">\${Utils.formatCurrency(p.sale_price)}</span>
+                        </div>
+                        <div class="flex flex-col items-end">
+                            <span class="text-[9px] text-zinc-600 uppercase">Stock Actual</span>
+                            <span class="text-xs font-mono \${stockColor}">\${stockQty} un.</span>
+                            \${capHtml}
+                        </div>
+                    </div>
+                </div>
+            </div>\`;
         }).join('');
     },
 
@@ -299,30 +368,47 @@ const CuentasUI = {
         if (!supabase) return;
 
         try {
-            // 1. Obtener todas las recetas base de los productos seleccionados
+            // 1. Obtener todas las recetas de los productos seleccionados (incluyendo variantes)
             const productIds = items.map(i => i.id);
             const { data: bomRows, error: bErr } = await supabase
                 .from('product_bom')
-                .select('product_id, material_id, quantity_required')
-                .in('product_id', productIds)
-                .is('product_color_id', null);
+                .select('product_id, material_id, quantity_required, product_color_id')
+                .in('product_id', productIds);
 
             if (bErr) throw bErr;
 
-            // 2. Calcular requerimiento total por material
+            // Agrupar por producto y color
+            const productRecipe = {}; // { product_id: { color_id: [ { material_id, qty } ] } }
+            for (const row of bomRows) {
+                if (!productRecipe[row.product_id]) {
+                    productRecipe[row.product_id] = {};
+                }
+                const cId = row.product_color_id || 'base';
+                if (!productRecipe[row.product_id][cId]) {
+                    productRecipe[row.product_id][cId] = [];
+                }
+                productRecipe[row.product_id][cId].push(row);
+            }
+
+            // 2. Calcular requerimiento total
             const requirements = {}; // { material_id: totalNeeded }
             for (const item of items) {
-                const recipes = (bomRows || []).filter(b => b.product_id === item.id);
-                for (const r of recipes) {
-                    const matId = r.material_id;
-                    if (!requirements[matId]) requirements[matId] = 0;
-                    requirements[matId] += r.quantity_required * item.qty;
+                const colors = productRecipe[item.id];
+                if (colors) {
+                    // Tomamos la primera receta disponible como caso base
+                    const firstColorKey = Object.keys(colors)[0];
+                    const recipe = colors[firstColorKey];
+                    for (const r of recipe) {
+                        const matId = r.material_id;
+                        if (!requirements[matId]) requirements[matId] = 0;
+                        requirements[matId] += r.quantity_required * item.qty;
+                    }
                 }
             }
 
             const materialIds = Object.keys(requirements).map(Number);
             if (materialIds.length === 0) {
-                results.innerHTML = '<div class="text-center text-zinc-500 text-xs py-2">Los productos seleccionados no tienen receta base.</div>';
+                results.innerHTML = '<div class="text-center text-zinc-500 text-xs py-2">Los productos seleccionados no tienen receta.</div>';
                 return;
             }
 
