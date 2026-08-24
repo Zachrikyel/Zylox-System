@@ -1,35 +1,52 @@
 const OrdersUI = {
     state: {
         products: [],
+        bundles: [],
         selectedProductIds: new Set(),
         currentView: 'home',
-        currentStep: 0
+        currentStep: 0,
+        isComboMode: false
     },
 
     init: async () => {
         OrdersUI.loadHomeStats();
+        // Prefetch products & bundles in background
         OrdersUI.fetchProducts();
+        OrdersUI.fetchBundles();
     },
 
     fetchProducts: async () => {
         if (OrdersUI.state.products.length > 0) return;
-
-        // Query con price_adjustment
         const { data, error } = await window.supabaseClient
             .from('products')
             .select(`
                 id, name, sku, base_price, sale_price, stock_quantity, card_middle_url, display_order,
+                profit_margin, specific_kwh_cost, specific_wear_cost, specific_labor_cost, 
+                is_stock_item, is_free_shipping, compare_at_price,
                 product_colors ( id, color_name, hex_code, price_adjustment )
             `)
             .eq('is_published', true)
+            .is('pack_type', null) // Filtrar SOLO productos (sin bundles)
             .order('display_order', { ascending: true });
 
-        if (!error && data) {
-            OrdersUI.state.products = data;
-        } else if (error) {
-            console.error("Error fetching products:", error);
-            Utils.notify("Error DB al cargar productos.", "error");
-        }
+        if (!error && data) OrdersUI.state.products = data;
+    },
+
+    fetchBundles: async () => {
+        if (OrdersUI.state.bundles.length > 0) return;
+        const { data, error } = await window.supabaseClient
+            .from('products')
+            .select(`
+                id, name, sku, base_price, sale_price, stock_quantity, card_middle_url, display_order,
+                profit_margin, specific_kwh_cost, specific_wear_cost, specific_labor_cost, 
+                is_stock_item, is_free_shipping, compare_at_price,
+                product_colors ( id, color_name, hex_code, price_adjustment )
+            `)
+            .eq('is_published', true)
+            .not('pack_type', 'is', null) // Filtrar SOLO combos
+            .order('display_order', { ascending: true });
+
+        if (!error && data) OrdersUI.state.bundles = data;
     },
 
     loadHomeStats: async () => {
@@ -42,7 +59,16 @@ const OrdersUI = {
     },
 
     startPosWizard: async () => {
+        OrdersUI.state.isComboMode = false;
         await OrdersUI.fetchProducts();
+        OrdersUI.state.selectedProductIds.clear();
+        CartManager.cart = [];
+        WizardLogic.goToStep(1);
+    },
+
+    startComboWizard: async () => {
+        OrdersUI.state.isComboMode = true;
+        await OrdersUI.fetchBundles();
         OrdersUI.state.selectedProductIds.clear();
         CartManager.cart = [];
         WizardLogic.goToStep(1);
@@ -69,7 +95,16 @@ const OrdersUI = {
         let titleText = "";
         if (context === 'home') titleText = "";
         if (context === 'history') titleText = "HISTORIAL";
-        if (context === 'wizard') titleText = `PASO ${stepNum} DE 4`;
+        if (context === 'wizard') {
+            const prefix = OrdersUI.state.isComboMode ? 'COMBO ' : '';
+            // Si es combo, saltamos el step 2, por lo que el step 3 es "2 de 3" y step 4 es "3 de 3"
+            if (OrdersUI.state.isComboMode) {
+                const displayStep = stepNum === 1 ? 1 : stepNum - 1;
+                titleText = `${prefix}PASO ${displayStep} DE 3`;
+            } else {
+                titleText = `PASO ${stepNum} DE 4`;
+            }
+        }
 
         try {
             const header = window.parent.document.querySelector('header');
@@ -96,16 +131,45 @@ const OrdersUI = {
                 showConfirmModal("¿Salir de la venta? Se perderán los datos.", () => OrdersUI.switchView('home'));
             };
             window.parent.stageBack = () => {
-                if (stepNum > 1) WizardLogic.goToStep(stepNum - 1);
+                if (stepNum > 1) {
+                    const prevStep = (OrdersUI.state.isComboMode && stepNum === 3) ? 1 : stepNum - 1;
+                    WizardLogic.goToStep(prevStep);
+                }
                 else OrdersUI.switchView('home');
             };
         }
     },
 
+    filterStep1: (query) => {
+        const q = (query || '').toLowerCase().trim();
+        const items = OrdersUI.state.isComboMode ? OrdersUI.state.bundles : OrdersUI.state.products;
+        
+        items.forEach(p => {
+            const el = document.getElementById(`step1-item-${p.id}`);
+            if (el) {
+                if (!q || p.name.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q))) {
+                    el.classList.remove('hidden');
+                } else {
+                    el.classList.add('hidden');
+                }
+            }
+        });
+    },
+
     renderStep1: () => {
+        // En lugar de un grid, usamos una lista estilo Arsenal (flex column)
         const container = document.getElementById('step1-grid');
+        container.className = "flex-1 overflow-y-auto space-y-2 pb-24"; // Reemplazar clases del grid
+
         const selected = OrdersUI.state.selectedProductIds;
-        container.innerHTML = OrdersUI.state.products.map(p => {
+        const items = OrdersUI.state.isComboMode ? OrdersUI.state.bundles : OrdersUI.state.products;
+
+        if (items.length === 0) {
+            container.innerHTML = '<div class="text-center p-10 text-zinc-500 text-xs">No hay elementos disponibles.</div>';
+            return;
+        }
+
+        container.innerHTML = items.map(p => {
             const isSelected = selected.has(p.id);
             const price = p.sale_price || p.base_price;
             let imgUrl = null;
@@ -114,24 +178,36 @@ const OrdersUI = {
                 if (id) imgUrl = `/api/drive-proxy?id=${id}`;
             }
 
+            const rowBorderCls = isSelected ? 'border-l-4 border-l-[#39FF14] bg-zinc-800/80 border border-zinc-700 border-l-[#39FF14]' : 'border-l-4 border-l-zinc-700 bg-zinc-900/50 border border-zinc-800/50 hover:bg-zinc-800 hover:border-zinc-700';
+            const iconCls = OrdersUI.state.isComboMode ? 'ph-package' : 'ph-cube';
+
             return `
-            <div onclick="WizardLogic.toggleProductSelection(${p.id})" 
-                 class="group relative h-56 border cursor-pointer transition-all flex flex-col cyber-shape bg-zinc-900 overflow-hidden
-                 ${isSelected ? 'border-[#39FF14] ring-1 ring-[#39FF14]' : 'border-zinc-800 hover:border-zinc-500'}">
-                <div class="absolute top-0 left-0 bg-zinc-800 text-zinc-500 text-[9px] px-2 py-0.5 font-mono z-10 border-b border-r border-zinc-700">#${p.display_order || '0'}</div>
-                ${isSelected ? `<div class="absolute top-2 right-2 text-[#39FF14] z-10 bg-black/80 rounded-full p-1"><i class="ph-fill ph-check-circle text-xl"></i></div>` : ''}
-                <div class="flex-1 flex items-center justify-center p-4 bg-gradient-to-b from-black/20 to-zinc-900/50">
-                    ${imgUrl ? `<img src="${imgUrl}" class="max-h-full object-contain drop-shadow-lg ${isSelected ? 'scale-110' : ''} transition-transform">` : '<i class="ph ph-image text-3xl text-zinc-700"></i>'}
+            <div id="step1-item-${p.id}" onclick="WizardLogic.toggleProductSelection(${p.id})" 
+                 class="inventory-row flex items-center gap-3 p-3 cursor-pointer transition-all ${rowBorderCls}">
+                 
+                <div class="shrink-0 w-12 h-12 bg-black border border-zinc-800 rounded flex items-center justify-center p-1 relative cyber-shape relative">
+                    ${imgUrl ? `<img src="${imgUrl}" class="max-h-full max-w-full object-contain ${isSelected ? 'scale-110 drop-shadow-[0_0_8px_rgba(57,255,20,0.5)]' : ''} transition-transform">` : `<i class="ph ${iconCls} text-xl text-zinc-600"></i>`}
+                    ${isSelected ? `<div class="absolute -top-2 -right-2 bg-black rounded-full text-[#39FF14]"><i class="ph-fill ph-check-circle text-lg"></i></div>` : ''}
                 </div>
-                <div class="p-3 bg-zinc-950 border-t border-zinc-800 relative">
-                     <h3 class="text-[10px] font-bold text-white uppercase leading-tight line-clamp-2 h-6">${p.name}</h3>
-                     <div class="flex justify-between items-end mt-2">
-                        <span class="text-[#39FF14] font-mono font-bold text-xs">${Utils.formatCurrency(price)}</span>
-                        <span class="text-[9px] text-zinc-600 uppercase">Stock: ${p.stock_quantity || 0}</span>
-                     </div>
+                
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-xs font-bold text-white uppercase truncate">${p.name}</h3>
+                        ${OrdersUI.state.isComboMode ? '<span class="text-[8px] bg-purple-500/20 text-purple-400 px-1 py-0.5 border border-purple-500/30 rounded font-bold uppercase tracking-wider">Combo</span>' : ''}
+                    </div>
+                    <div class="flex items-center gap-3 mt-1">
+                        <span class="text-[9px] text-zinc-500 font-mono">Stock: <span class="${p.stock_quantity > 0 ? 'text-zinc-300' : 'text-red-400 font-bold'}">${p.stock_quantity || 0}</span></span>
+                        ${p.sku ? `<span class="text-[9px] text-zinc-600 font-mono">#${p.sku}</span>` : ''}
+                    </div>
                 </div>
+                
+                <div class="text-right shrink-0">
+                    <div class="text-xs font-mono font-bold ${isSelected ? 'text-[#39FF14]' : 'text-zinc-300'}">${Utils.formatCurrency(price)}</div>
+                </div>
+                
             </div>`;
         }).join('');
+        
         WizardLogic.updateNextButtonState();
     },
 
@@ -213,7 +289,7 @@ const OrdersUI = {
         const container = document.getElementById('history-container');
         container.innerHTML = '<div class="text-center text-zinc-500 text-xs mt-4">Cargando...</div>';
         const { data, error } = await window.supabaseClient
-            .from('orders').select(`id, created_at, total_amount, guest_info, order_items(id, quantity, selected_color, product:products(id, name))`)
+            .from('orders').select(`id, created_at, total_amount, total_profit, status, payment_method, guest_info, order_items(id, quantity, unit_price, selected_color, product_id, product:products(id, name))`)
             .order('created_at', { ascending: false }).limit(20);
         if (error) return;
         window._historyOrders = data; // cache para abrir el editor sin volver a pedirlo
@@ -249,8 +325,10 @@ window.openOrderEditor = async (orderId) => {
 
     // Traemos el consumo real (quote_materials) de cada línea, en una sola pasada
     window._orderEditorMaterials = {};
+    window._orderEditorColors = {}; // Para el select de selected_color
     for (const item of order.order_items) {
         window._orderEditorMaterials[item.id] = await window.fetchOrderItemMaterials(item.id);
+        window._orderEditorColors[item.id] = await window.fetchProductColors(item.product_id);
     }
 
     renderOrderEditorModal(order);
@@ -268,51 +346,211 @@ function renderOrderEditorModal(order) {
     const opts = window._orderEditorFilamentOptions;
     const loading = opts === 'loading' || !opts;
 
+    // Parse guest_info for string input
+    let guestStr = '';
+    if (order.guest_info) {
+        try {
+            const gi = typeof order.guest_info === 'string' ? JSON.parse(order.guest_info) : order.guest_info;
+            guestStr = gi.name || gi.nombre || gi.email || gi.phone || JSON.stringify(gi);
+        } catch { guestStr = String(order.guest_info); }
+    }
+
     const modal = document.createElement('div');
     modal.id = 'order-editor-modal';
-    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fade-in';
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fade-in overflow-y-auto';
     modal.innerHTML = `
-        <div class="bg-zinc-900 border-2 border-cyan-500 max-w-md w-full p-5 max-h-[85vh] overflow-y-auto" style="clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 100%);">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-cyan-400 font-bold uppercase text-sm">Editar Orden #${order.id}</h3>
-                <button onclick="closeOrderEditor()" class="text-zinc-500 hover:text-white">✕</button>
+        <div class="bg-zinc-900 border-2 border-cyan-500 max-w-2xl w-full p-5 shadow-2xl relative my-8" style="clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 100%);">
+            <div class="flex justify-between items-center mb-6 border-b border-zinc-800 pb-2">
+                <h3 class="text-cyan-400 font-bold uppercase text-lg">Editar Orden #${order.id}</h3>
+                <button onclick="closeOrderEditor()" class="text-zinc-500 hover:text-white text-xl">✕</button>
             </div>
-            <div class="space-y-4">
-                ${order.order_items.map(item => {
-                    const rows = window._orderEditorMaterials[item.id] || [];
-                    return `
-                    <div class="border border-zinc-800 p-3">
-                        <div class="text-xs text-white font-bold mb-1">${item.product ? item.product.name : 'Producto'} <span class="text-zinc-500">x${item.quantity}</span></div>
-                        <div class="text-[10px] text-zinc-500 mb-2">Color actual: ${item.selected_color || '—'}</div>
-                        ${loading ? `<div class="text-[10px] text-zinc-600">⏳ Cargando materiales...</div>` : rows.length === 0 ? `<div class="text-[10px] text-zinc-600">Sin materiales registrados para esta línea.</div>` : rows.map(r => `
-                        <div class="flex items-center gap-2 mb-1">
-                            <select onchange="handleOrderMaterialSwap(${item.id}, ${r.id}, this.value)" class="flex-1 bg-black border border-zinc-700 p-1.5 text-[10px] text-white">
-                                ${opts.map(m => `<option value="${m.id}" ${m.id === r.material_id ? 'selected' : ''}>${m.display_name}${m.current_quantity <= 0 ? ' ⚠️' : ''}</option>`).join('')}
+            
+            <form id="order-edit-form" onsubmit="event.preventDefault(); saveOrderChanges(${order.id});" class="space-y-6">
+                <!-- Info General -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[9px] text-zinc-500 uppercase tracking-wider font-bold mb-1 block">Cliente</label>
+                        <input type="text" id="edit-guest" value="${guestStr}" class="w-full bg-black border border-zinc-700 p-2 text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="text-[9px] text-zinc-500 uppercase tracking-wider font-bold mb-1 block">Total Cobrado (COP)</label>
+                        <input type="number" step="0.01" id="edit-total" value="${order.total_amount || 0}" class="w-full bg-black border border-zinc-700 p-2 text-xs text-[#39FF14] font-mono font-bold">
+                    </div>
+                    <div>
+                        <label class="text-[9px] text-zinc-500 uppercase tracking-wider font-bold mb-1 block">Ganancia Registrada (COP)</label>
+                        <input type="number" step="0.01" id="edit-profit" value="${order.total_profit || 0}" class="w-full bg-black border border-zinc-700 p-2 text-xs text-white font-mono">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[9px] text-zinc-500 uppercase tracking-wider font-bold mb-1 block">Estado</label>
+                            <select id="edit-status" class="w-full bg-black border border-zinc-700 p-2 text-xs text-white">
+                                <option value="paid" ${order.status === 'paid' ? 'selected' : ''}>Pagado</option>
+                                <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pendiente</option>
+                                <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelado</option>
                             </select>
-                            <span class="text-[9px] text-yellow-400 font-mono">${r.quantity}g</span>
-                        </div>`).join('')}
-                    </div>`;
-                }).join('')}
-            </div>
-            <p class="text-[9px] text-zinc-600 mt-3">💡 El cambio descuenta el material nuevo y devuelve el anterior al inventario automáticamente.</p>
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-zinc-500 uppercase tracking-wider font-bold mb-1 block">Método</label>
+                            <select id="edit-method" class="w-full bg-black border border-zinc-700 p-2 text-xs text-white">
+                                <option value="cash_pos" ${order.payment_method === 'cash_pos' ? 'selected' : ''}>Efectivo (POS)</option>
+                                <option value="transfer" ${order.payment_method === 'transfer' ? 'selected' : ''}>Transferencia</option>
+                                <option value="wompi" ${order.payment_method === 'wompi' ? 'selected' : ''}>Wompi</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Items -->
+                <div class="space-y-3">
+                    <h4 class="text-xs text-zinc-400 font-bold uppercase tracking-widest border-b border-zinc-800 pb-1">Items de la Orden</h4>
+                    <div id="edit-items-container" class="space-y-3">
+                    ${order.order_items.map(item => {
+                        const rows = window._orderEditorMaterials[item.id] || [];
+                        const colors = window._orderEditorColors[item.id] || [];
+                        return `
+                        <div class="border border-zinc-800 p-3 relative bg-zinc-950" id="item-row-${item.id}">
+                            <button type="button" onclick="handleDeleteOrderItem(${item.id})" class="absolute top-2 right-2 text-zinc-600 hover:text-red-500"><i class="ph-fill ph-trash"></i></button>
+                            <div class="text-xs text-white font-bold mb-3 pr-8">${item.product ? item.product.name : 'Producto'}</div>
+                            
+                            <div class="grid grid-cols-3 gap-3 mb-3">
+                                <div>
+                                    <label class="text-[8px] text-zinc-500 uppercase block mb-1">Cantidad</label>
+                                    <input type="number" min="1" id="item-qty-${item.id}" value="${item.quantity}" class="w-full bg-black border border-zinc-700 p-1.5 text-xs text-white text-center">
+                                </div>
+                                <div>
+                                    <label class="text-[8px] text-zinc-500 uppercase block mb-1">Precio Unit.</label>
+                                    <input type="number" step="0.01" id="item-price-${item.id}" value="${item.unit_price || 0}" class="w-full bg-black border border-zinc-700 p-1.5 text-xs text-white">
+                                </div>
+                                <div>
+                                    <label class="text-[8px] text-zinc-500 uppercase block mb-1">Variante Color</label>
+                                    <select id="item-color-${item.id}" class="w-full bg-black border border-zinc-700 p-1.5 text-xs text-white">
+                                        <option value="">N/A</option>
+                                        ${colors.map(c => `<option value="${c.color_name}" ${item.selected_color === c.color_name ? 'selected' : ''}>${c.color_name}</option>`).join('')}
+                                        ${item.selected_color && !colors.some(c => c.color_name === item.selected_color) ? `<option value="${item.selected_color}" selected>${item.selected_color} (Legado)</option>` : ''}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Materiales -->
+                            <div class="bg-black/50 p-2 border border-zinc-800/50">
+                                <div class="text-[9px] text-zinc-500 uppercase tracking-widest mb-2 font-bold">Materiales de Impresión</div>
+                                ${loading ? `<div class="text-[10px] text-zinc-600">⏳ Cargando materiales...</div>` : rows.length === 0 ? `<div class="text-[10px] text-zinc-600">Sin materiales (probablemente combo o sin receta).</div>` : rows.map(r => `
+                                <div class="flex items-center gap-2 mb-1">
+                                    <select id="qm-swap-${r.id}" class="flex-1 bg-black border border-zinc-700 p-1 text-[10px] text-white">
+                                        ${opts.map(m => `<option value="${m.id}" ${m.id === r.material_id ? 'selected' : ''}>${m.display_name}${m.current_quantity <= 0 ? ' ⚠️' : ''}</option>`).join('')}
+                                    </select>
+                                    <span class="text-[9px] text-yellow-400 font-mono w-10 text-right" id="qm-qty-${r.id}" data-base="${r.quantity / item.quantity}">${r.quantity}g</span>
+                                </div>`).join('')}
+                            </div>
+                        </div>`;
+                    }).join('')}
+                    </div>
+                </div>
+                
+                <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-zinc-800">
+                    <button type="button" onclick="closeOrderEditor()" class="px-4 py-2 text-xs font-bold uppercase text-zinc-400 hover:text-white transition-colors">Cancelar</button>
+                    <button type="submit" class="bg-cyan-500 text-black px-6 py-2 text-xs font-bold uppercase tracking-widest hover:bg-cyan-400 transition-colors cyber-shape">Guardar Cambios</button>
+                </div>
+            </form>
         </div>
     `;
     document.body.appendChild(modal);
+
+    // Auto-update quote material weights when qty changes
+    order.order_items.forEach(item => {
+        const qtyEl = document.getElementById(`item-qty-${item.id}`);
+        if (qtyEl) {
+            qtyEl.addEventListener('input', (e) => {
+                const newQty = parseInt(e.target.value) || 1;
+                const rows = window._orderEditorMaterials[item.id] || [];
+                rows.forEach(r => {
+                    const el = document.getElementById(`qm-qty-${r.id}`);
+                    if (el) {
+                        const baseQty = parseFloat(el.getAttribute('data-base')) || 0;
+                        el.innerText = (baseQty * newQty).toFixed(1) + 'g';
+                    }
+                });
+            });
+        }
+    });
 }
 
-// Se dispara al elegir un material nuevo en el editor: actualiza quote_materials (el
-// disparador ya conectado hace el ajuste de inventario) y refresca la etiqueta de color.
-window.handleOrderMaterialSwap = async (orderItemId, quoteMaterialRowId, newMaterialIdStr) => {
-    const newMaterialId = Number(newMaterialIdStr);
+window.handleDeleteOrderItem = (itemId) => {
+    showConfirmModal("¿Estás seguro de eliminar este item de la orden? El inventario será repuesto.", async () => {
+        try {
+            await window.deleteOrderItem(itemId);
+            document.getElementById(`item-row-${itemId}`).remove();
+            showNotification("Item eliminado", "success");
+        } catch (e) {
+            console.error(e);
+            showNotification("Error: " + e.message, "error");
+        }
+    });
+};
+
+window.saveOrderChanges = async (orderId) => {
+    const btn = document.querySelector('#order-edit-form button[type="submit"]');
+    btn.disabled = true;
+    btn.innerText = "GUARDANDO...";
+
     try {
-        await window.swapOrderItemMaterial(quoteMaterialRowId, newMaterialId);
-        const opts = window._orderEditorFilamentOptions || [];
-        const chosen = opts.find(m => m.id === newMaterialId);
-        if (chosen) await window.updateOrderItemColorLabel(orderItemId, chosen.display_name);
-        showNotification("Material actualizado", "success");
-        await OrdersUI.loadHistory(); // refresca el historial con la etiqueta nueva
+        const order = (window._historyOrders || []).find(o => o.id === orderId);
+        if (!order) throw new Error("Orden no encontrada");
+
+        // 1. Guardar info de la orden
+        const orderChanges = {
+            guest_info: document.getElementById('edit-guest').value,
+            total_amount: parseFloat(document.getElementById('edit-total').value) || 0,
+            total_profit: parseFloat(document.getElementById('edit-profit').value) || 0,
+            status: document.getElementById('edit-status').value,
+            payment_method: document.getElementById('edit-method').value
+        };
+        await window.updateOrder(orderId, orderChanges);
+
+        // 2. Guardar items y materiales
+        for (const item of order.order_items) {
+            const rowEl = document.getElementById(`item-row-${item.id}`);
+            if (!rowEl) continue; // fue eliminado
+
+            const qty = parseInt(document.getElementById(`item-qty-${item.id}`).value) || 1;
+            const price = parseFloat(document.getElementById(`item-price-${item.id}`).value) || 0;
+            const color = document.getElementById(`item-color-${item.id}`).value || null;
+            
+            const itemChanges = {};
+            if (qty !== item.quantity) itemChanges.quantity = qty;
+            if (price !== item.unit_price) {
+                itemChanges.unit_price = price;
+                itemChanges.subtotal = price * qty;
+            } else if (qty !== item.quantity) {
+                itemChanges.subtotal = item.unit_price * qty;
+            }
+            if (color !== item.selected_color) itemChanges.selected_color = color;
+
+            if (Object.keys(itemChanges).length > 0) {
+                await window.updateOrderItem(item.id, itemChanges);
+            }
+
+            // Material Swaps
+            const rows = window._orderEditorMaterials[item.id] || [];
+            for (const r of rows) {
+                const swapEl = document.getElementById(`qm-swap-${r.id}`);
+                if (swapEl) {
+                    const newMatId = parseInt(swapEl.value);
+                    if (newMatId !== r.material_id) {
+                        await window.swapOrderItemMaterial(r.id, newMatId);
+                    }
+                }
+            }
+        }
+
+        showNotification("Orden actualizada con éxito", "success");
+        closeOrderEditor();
+        await OrdersUI.loadHistory(); // Refrescar
+
     } catch (e) {
         console.error(e);
         showNotification("Error: " + e.message, "error");
+        btn.disabled = false;
+        btn.innerText = "Guardar Cambios";
     }
 };

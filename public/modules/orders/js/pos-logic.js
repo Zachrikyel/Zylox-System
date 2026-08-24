@@ -3,10 +3,19 @@ const MASTER_USER_ID = "c4a011c5-d8af-47ab-bc2f-f245b3cf6462";
 
 const WizardLogic = {
     goToStep: (stepNum) => {
+        // Combo Mode skip logic
+        if (OrdersUI.state.isComboMode && stepNum === 2) stepNum = 3;
+
         if (stepNum === 2 && OrdersUI.state.selectedProductIds.size === 0) return Utils.notify("Selecciona al menos un producto", "warning");
+        if (stepNum === 3 && OrdersUI.state.isComboMode && OrdersUI.state.selectedProductIds.size === 0) return Utils.notify("Selecciona al menos un combo", "warning");
+        
         if (stepNum === 3) {
-            if (!WizardLogic.validateStep2()) return;
-            WizardLogic.buildCartFromStep2();
+            if (OrdersUI.state.isComboMode) {
+                WizardLogic.buildCartFromStep1Directly();
+            } else {
+                if (!WizardLogic.validateStep2()) return;
+                WizardLogic.buildCartFromStep2();
+            }
         }
 
         document.getElementById('view-home').classList.add('hidden');
@@ -25,7 +34,11 @@ const WizardLogic = {
         OrdersUI.state.currentStep = stepNum;
     },
 
-    nextStep: () => WizardLogic.goToStep(OrdersUI.state.currentStep + 1),
+    nextStep: () => {
+        let next = OrdersUI.state.currentStep + 1;
+        if (OrdersUI.state.isComboMode && OrdersUI.state.currentStep === 1) next = 3;
+        WizardLogic.goToStep(next);
+    },
 
     toggleProductSelection: (id) => {
         const set = OrdersUI.state.selectedProductIds;
@@ -140,6 +153,33 @@ const WizardLogic = {
                 predictedOperationalCost: (p.specific_kwh_cost || 0) + (p.specific_wear_cost || 0) + (p.specific_labor_cost || 0)
             });
         });
+    },
+
+    buildCartFromStep1Directly: () => {
+        CartManager.cart = [];
+        const items = OrdersUI.state.isComboMode ? OrdersUI.state.bundles : OrdersUI.state.products;
+
+        for (const id of OrdersUI.state.selectedProductIds) {
+            const p = items.find(x => x.id === id);
+            if (!p) continue;
+
+            const finalUnitPrice = p.sale_price || p.base_price;
+
+            CartManager.cart.push({
+                uniqueId: Date.now() + Math.random(),
+                productId: id,
+                name: p.name,
+                basePrice: finalUnitPrice,
+                qty: 1, // Default qty for combos is 1, they can adjust in cart? Wait, there is no qty adjuster in cart right now...
+                // Actually they need to be able to sell multiple combos. Let me set it to 1, and the user can just tap it multiple times? No, they can't.
+                // Wait, if it's 1 by default, the review cart (Step 3) only shows static text! Let's just default to 1.
+                variantName: 'N/A',
+                variantId: null,
+                predictedPrice: p.base_price || 0,
+                predictedProfit: p.profit_margin || 0,
+                predictedOperationalCost: (p.specific_kwh_cost || 0) + (p.specific_wear_cost || 0) + (p.specific_labor_cost || 0)
+            });
+        }
     }
 };
 
@@ -167,12 +207,19 @@ const CartManager = {
                     <div>
                         <div class="text-sm font-bold text-white uppercase tracking-tight">${item.name}</div>
                         <div class="text-[10px] text-zinc-500 font-mono mt-1 flex items-center gap-2">
-                            <span class="text-zinc-400">${item.qty} x ${Utils.formatCurrency(item.basePrice)}</span>
+                            <span class="text-zinc-400 font-bold">${Utils.formatCurrency(item.basePrice)} c/u</span>
                             ${item.variantName !== 'N/A' ? `<span class="bg-zinc-800 text-[#39FF14] px-1.5 py-0.5 rounded text-[9px] uppercase font-bold border border-zinc-700">${item.variantName}</span>` : ''}
                         </div>
                     </div>
                 </div>
-                <div class="text-[#39FF14] font-mono font-bold">${Utils.formatCurrency(total)}</div>
+                <div class="flex items-center gap-4 shrink-0">
+                    <div class="flex items-center bg-black border border-zinc-800 rounded overflow-hidden">
+                        <button onclick="CartManager.adjustCartQty(${item.uniqueId}, -1)" class="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">-</button>
+                        <div class="w-8 text-center text-xs font-mono text-white">${item.qty}</div>
+                        <button onclick="CartManager.adjustCartQty(${item.uniqueId}, 1)" class="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">+</button>
+                    </div>
+                    <div class="text-[#39FF14] font-mono font-bold w-20 text-right">${Utils.formatCurrency(total)}</div>
+                </div>
             </div>`;
         }).join('');
 
@@ -183,6 +230,20 @@ const CartManager = {
     removeItem: (uid) => {
         CartManager.cart = CartManager.cart.filter(x => x.uniqueId !== uid);
         CartManager.renderReviewTable();
+        // Si el carrito queda vacío y estamos en combos, devolvemos al paso 1 (ya que el paso 2 se salta)
+        if (CartManager.cart.length === 0) {
+            const emptyStep = OrdersUI.state.isComboMode ? 1 : 2;
+            WizardLogic.goToStep(emptyStep);
+        }
+    },
+
+    adjustCartQty: (uid, delta) => {
+        const item = CartManager.cart.find(x => x.uniqueId === uid);
+        if (item) {
+            item.qty += delta;
+            if (item.qty < 1) item.qty = 1;
+            CartManager.renderReviewTable();
+        }
     },
 
     clearAll: () => {

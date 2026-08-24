@@ -172,3 +172,93 @@ window.updateOrderItemColorLabel = async (orderItemId, newLabel) => {
         .eq('id', orderItemId);
     if (error) throw error;
 };
+
+// --- CRUD ÓRDENES (HISTORIAL) ---
+
+window.updateOrder = async (orderId, changes) => {
+    const supabase = window.supabaseClient;
+    const { error } = await supabase
+        .from('orders')
+        .update(changes)
+        .eq('id', orderId);
+    if (error) throw error;
+};
+
+window.updateOrderItem = async (itemId, changes) => {
+    const supabase = window.supabaseClient;
+    
+    // Si la cantidad cambió, ajustamos inventario del producto
+    // Nota: El trigger en Supabase de material también podría estar conectado, 
+    // pero debemos asegurarnos de que la cantidad en quote_materials se actualice.
+    if (changes.quantity !== undefined) {
+        // Obtenemos cantidad anterior
+        const { data: oldItem } = await supabase.from('order_items').select('quantity, product_id').eq('id', itemId).single();
+        if (oldItem && oldItem.quantity !== changes.quantity) {
+            const diff = changes.quantity - oldItem.quantity; // Si subió de 2 a 3, diff es +1
+            
+            // 1. Ajustar stock del producto físico (si aplica)
+            if (oldItem.product_id) {
+                const { data: prod } = await supabase.from('products').select('stock_quantity').eq('id', oldItem.product_id).single();
+                if (prod) {
+                    await supabase.from('products').update({
+                        stock_quantity: Math.max(0, prod.stock_quantity - diff)
+                    }).eq('id', oldItem.product_id);
+                }
+            }
+
+            // 2. Ajustar quote_materials multiplicando por el nuevo ratio
+            // Asumiendo que quote_materials tiene cantidad total (quantity)
+            const { data: qmList } = await supabase.from('quote_materials').select('id, quantity').eq('order_item_id', itemId);
+            if (qmList && qmList.length > 0 && oldItem.quantity > 0) {
+                const ratio = changes.quantity / oldItem.quantity;
+                for (const qm of qmList) {
+                    await supabase.from('quote_materials').update({
+                        quantity: qm.quantity * ratio
+                    }).eq('id', qm.id);
+                }
+            }
+        }
+    }
+
+    const { error } = await supabase
+        .from('order_items')
+        .update(changes)
+        .eq('id', itemId);
+    if (error) throw error;
+};
+
+window.deleteOrderItem = async (itemId) => {
+    const supabase = window.supabaseClient;
+    
+    // Devolver inventario antes de borrar
+    const { data: oldItem } = await supabase.from('order_items').select('quantity, product_id').eq('id', itemId).single();
+    if (oldItem && oldItem.product_id) {
+        const { data: prod } = await supabase.from('products').select('stock_quantity').eq('id', oldItem.product_id).single();
+        if (prod) {
+            await supabase.from('products').update({
+                stock_quantity: prod.stock_quantity + oldItem.quantity
+            }).eq('id', oldItem.product_id);
+        }
+    }
+
+    // Al borrar el order_item, si hay cascade delete, quote_materials se borra. 
+    // Supabase trigger de material_movements se encarga de reponer inventario de materiales si está configurado así en la DB.
+    const { error } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('id', itemId);
+    if (error) throw error;
+};
+
+window.fetchProductColors = async (productId) => {
+    const supabase = window.supabaseClient;
+    const { data, error } = await supabase
+        .from('product_colors')
+        .select('id, color_name, price_adjustment')
+        .eq('product_id', productId);
+    if (error) {
+        console.error("Error fetching product colors", error);
+        return [];
+    }
+    return data || [];
+};

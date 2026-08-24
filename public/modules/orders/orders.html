@@ -29,12 +29,13 @@
                             Venta Individual</h2>
                         <p class="text-xs text-zinc-500 font-mono">Paso a paso. Selección detallada.</p>
                     </button>
-                    <button onclick="Utils.notify('En desarrollo...', 'warning')"
-                        class="group relative bg-zinc-900/80 border border-zinc-800 p-6 hover:border-yellow-400 transition-all text-left cyber-shape backdrop-blur-md opacity-50">
+                    <button onclick="OrdersUI.startComboWizard()"
+                        class="group relative bg-zinc-900/80 border border-zinc-800 p-6 hover:border-yellow-400 transition-all text-left cyber-shape backdrop-blur-md">
                         <div class="absolute top-4 right-4 text-zinc-700 group-hover:text-yellow-400"><i
                                 class="ph ph-package text-4xl"></i></div>
                         <h2 class="text-2xl font-black text-white uppercase italic mb-2 group-hover:text-yellow-400">
                             Combos</h2>
+                        <p class="text-xs text-zinc-500 font-mono">Venta rápida de paquetes.</p>
                     </button>
                     <button onclick="OrdersUI.switchView('history')"
                         class="group relative bg-zinc-900/80 border border-zinc-800 p-6 hover:border-purple-500 transition-all text-left cyber-shape backdrop-blur-md">
