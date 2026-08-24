@@ -311,14 +311,46 @@ const OrdersUI = {
                     guestLabel = gi.name || gi.nombre || gi.email || gi.phone || JSON.stringify(gi);
                 } catch { guestLabel = String(o.guest_info); }
             }
+            const dateObj = new Date(o.created_at);
+            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const dateStr = dateObj.toLocaleDateString();
+            
+            // Status colors
+            let statusColor = '#39FF14'; // paid
+            let statusLabel = 'PAGADO';
+            if (o.status === 'pending') { statusColor = '#FFB800'; statusLabel = 'PENDIENTE'; }
+            if (o.status === 'cancelled') { statusColor = '#FF3366'; statusLabel = 'CANCELADO'; }
+
             return `
-            <div onclick="openOrderEditor(${o.id})" class="bg-zinc-900 border border-zinc-800 p-3 flex justify-between hover:border-cyan-500 cursor-pointer transition-colors">
-                <div class="flex items-center gap-2 flex-wrap">
-                    <span class="text-[#39FF14] font-mono text-xs">#${o.id}</span>
-                    <span class="text-[9px] text-zinc-500">${new Date(o.created_at).toLocaleDateString()}</span>
-                    ${guestLabel ? `<span class="text-[9px] text-purple-400 font-mono bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded-sm uppercase truncate max-w-[150px]" title="${guestLabel}">${guestLabel}</span>` : ''}
+            <div onclick="openOrderEditor(${o.id})" class="group relative bg-zinc-900/80 border border-zinc-800 p-4 cursor-pointer hover:border-[${statusColor}] transition-all cyber-shape backdrop-blur-md overflow-hidden">
+                <!-- Glowing accent line -->
+                <div class="absolute left-0 top-0 bottom-0 w-1 bg-[${statusColor}] opacity-50 group-hover:opacity-100 group-hover:shadow-[0_0_10px_${statusColor}] transition-all"></div>
+                
+                <div class="flex justify-between items-start ml-2">
+                    <div>
+                        <div class="flex items-center gap-3 mb-1">
+                            <span class="text-white font-black italic text-lg tracking-wider group-hover:text-[${statusColor}] transition-colors">ORD-${o.id}</span>
+                            <span class="text-[8px] border px-1 py-0.5 rounded-sm font-bold uppercase tracking-widest" style="color: ${statusColor}; border-color: ${statusColor}40; background: ${statusColor}10">${statusLabel}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="ph ph-calendar-blank text-zinc-600 text-xs"></i>
+                            <span class="text-[10px] text-zinc-500 font-mono">${dateStr} <span class="text-zinc-700">|</span> ${timeStr}</span>
+                        </div>
+                        ${guestLabel ? `
+                        <div class="mt-2 flex items-center gap-1.5">
+                            <i class="ph ph-user text-purple-400 text-xs"></i>
+                            <span class="text-[10px] text-purple-400 font-mono uppercase tracking-wider truncate max-w-[200px]">${guestLabel}</span>
+                        </div>` : ''}
+                    </div>
+                    
+                    <div class="text-right">
+                        <div class="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Total</div>
+                        <div class="text-[${statusColor}] font-mono text-xl font-bold group-hover:scale-105 transition-transform origin-right text-shadow-sm shadow-[${statusColor}]">${Utils.formatCurrency(o.total_amount)}</div>
+                    </div>
                 </div>
-                <div class="text-white font-mono text-sm">${Utils.formatCurrency(o.total_amount)}</div>
+                
+                <!-- Tech decorative bg -->
+                <i class="ph ph-receipt absolute -right-4 -bottom-4 text-7xl text-white/5 transform -rotate-12 group-hover:text-[${statusColor}]/5 transition-colors"></i>
             </div>`;
         }).join('');
     }
@@ -459,7 +491,7 @@ function renderOrderEditorModal(order) {
                     <div class="mt-4 flex gap-2">
                         <select id="add-product-select" class="flex-1 bg-black border border-zinc-700 p-2 text-xs text-white">
                             <option value="">+ Seleccionar producto para agregar...</option>
-                            ${OrdersUI.state.products.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                            ${OrdersUI.state.products.filter(p => p.stock_quantity > 0).map(p => `<option value="${p.id}">${p.name} (Stock: ${p.stock_quantity})</option>`).join('')}
                         </select>
                         <button type="button" onclick="handleAddProductToOrder(${order.id})" class="bg-zinc-800 text-[#39FF14] px-4 text-xs font-bold hover:bg-zinc-700 transition-colors border border-zinc-700">Agregar</button>
                     </div>
