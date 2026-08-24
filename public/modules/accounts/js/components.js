@@ -14,13 +14,17 @@ const CuentasUI = {
     // INIT
     // =============================================================
     init: async () => {
-        // Mes por defecto = mes actual
-        const now = new Date();
-        const y = now.getFullYear();
-        const m = now.getMonth(); // 0-indexed
-        CuentasUI._pickerYear = y;
-        CuentasUI._pickerMonth = m;
-        CuentasUI._setMonthValue(y, m);
+        CuentasUI._activeMonths = new Set();
+        const supabase = window.supabaseClient;
+        if (supabase) {
+            const { data } = await supabase.from('orders').select('created_at');
+            (data || []).forEach(o => {
+                if (o.created_at) {
+                    CuentasUI._activeMonths.add(o.created_at.substring(0, 7));
+                }
+            });
+        }
+        CuentasUI._setMonthValue(null, null);
     },
 
     // =============================================================
@@ -30,6 +34,7 @@ const CuentasUI = {
     _MONTH_FULL: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
     _pickerYear: 2026,
     _pickerMonth: 0,
+    _activeMonths: new Set(),
 
     _setMonthValue: (year, month) => {
         if (year === null) {
@@ -83,6 +88,7 @@ const CuentasUI = {
             const isSelected = selectedVal === monthKey;
             const isFuture = CuentasUI._pickerYear > curYear || (CuentasUI._pickerYear === curYear && idx > curMonth);
             const isCurrent = CuentasUI._pickerYear === curYear && idx === curMonth;
+            const hasSales = CuentasUI._activeMonths.has(monthKey);
 
             let cls = 'py-2 text-xs font-mono uppercase tracking-wider transition-all ';
             if (isSelected) {
@@ -90,9 +96,11 @@ const CuentasUI = {
             } else if (isCurrent) {
                 cls += 'bg-zinc-800 text-purple-400 font-bold hover:bg-purple-600/30';
             } else if (isFuture) {
-                cls += 'text-zinc-700 cursor-not-allowed';
+                cls += 'text-zinc-800 cursor-not-allowed opacity-20';
+            } else if (!hasSales) {
+                cls += 'text-zinc-600 opacity-30 hover:bg-zinc-900 hover:opacity-100';
             } else {
-                cls += 'text-zinc-400 hover:bg-zinc-800 hover:text-white';
+                cls += 'text-zinc-300 font-bold hover:bg-zinc-800 hover:text-white';
             }
 
             return `<button ${isFuture ? 'disabled' : ''} onclick="CuentasUI.selectMonth(${idx})" class="${cls}">${name}</button>`;
@@ -650,7 +658,7 @@ const CuentasUI = {
             // Cargar tarjetas (históricas, sin filtro de mes) y gráficas (con filtro) en paralelo
             const monthVal = document.getElementById('dashboard-month').value;
             const [cardsHtml, chartsHtml, movementsHtml] = await Promise.all([
-                CuentasUI._buildCards(),
+                CuentasUI._buildCards(monthVal),
                 CuentasUI._buildCharts(monthVal),
                 CuentasUI._buildMovements()
             ]);
@@ -669,67 +677,68 @@ const CuentasUI = {
     // =============================================================
     // DASHBOARD — TARJETAS (saldo disponible histórico)
     // =============================================================
-    _buildCards: async () => {
+    _buildCards: async (monthVal) => {
         const supabase = window.supabaseClient;
         if (!supabase) return '';
 
-        // 1. Sumas de order_items (all time)
-        // predicted_profit = ganancia calculada
-        // predicted_operational_cost = costo operativo
-        // ganancia_real = columna generada (predicted_profit + (unit_price*quantity - predicted_price*quantity))
-        // Si ganancia_real no existe como columna generada, la calculamos manualmente.
-        const { data: oiRows, error: oiErr } = await supabase
-            .from('order_items')
-            .select('predicted_profit, predicted_operational_cost, unit_price, quantity, predicted_price, ganancia_real');
+        let orderIds = null;
+        let startDate = null;
+        let endDate = null;
+
+        if (monthVal) {
+            const [year, month] = monthVal.split('-').map(Number);
+            startDate = new Date(year, month - 1, 1).toISOString();
+            endDate = new Date(year, month, 1).toISOString();
+
+            const { data: orders } = await supabase
+                .from('orders')
+                .select('id')
+                .gte('created_at', startDate)
+                .lt('created_at', endDate);
+            orderIds = (orders || []).map(o => o.id);
+        }
+
+        // 1. Order Items
+        let oiRows = [];
+        if (monthVal) {
+            if (orderIds && orderIds.length > 0) {
+                const { data } = await supabase
+                    .from('order_items')
+                    .select('predicted_profit, predicted_operational_cost, unit_price, quantity, predicted_price, ganancia_real')
+                    .in('order_id', orderIds);
+                oiRows = data || [];
+            }
+        } else {
+            const { data } = await supabase
+                .from('order_items')
+                .select('predicted_profit, predicted_operational_cost, unit_price, quantity, predicted_price, ganancia_real');
+            oiRows = data || [];
+        }
 
         let sumProfit = 0, sumGananciaReal = 0, sumOpCost = 0;
+        for (const row of oiRows) {
+            const profit = parseFloat(row.predicted_profit) || 0;
+            const opCost = parseFloat(row.predicted_operational_cost) || 0;
+            const qty = parseFloat(row.quantity) || 1;
 
-        if (oiErr) {
-            console.warn('Error leyendo order_items:', oiErr.message);
-            // Intentar sin ganancia_real (por si no existe la columna)
-            const { data: fallbackRows } = await supabase
-                .from('order_items')
-                .select('predicted_profit, predicted_operational_cost, unit_price, quantity, predicted_price');
+            sumProfit += profit * qty;
+            sumOpCost += opCost * qty;
 
-            if (fallbackRows) {
-                for (const row of fallbackRows) {
-                    const profit = parseFloat(row.predicted_profit) || 0;
-                    const opCost = parseFloat(row.predicted_operational_cost) || 0;
-                    const unitPrice = parseFloat(row.unit_price) || 0;
-                    const qty = parseFloat(row.quantity) || 1;
-                    const predPrice = parseFloat(row.predicted_price) || 0;
-
-                    sumProfit += profit * qty;
-                    sumOpCost += opCost * qty;
-                    // ganancia_real = profit + (precio real venta - precio sugerido) por unidad * qty
-                    sumGananciaReal += (profit + (unitPrice - predPrice)) * qty;
-                }
-            }
-        } else if (oiRows) {
-            for (const row of oiRows) {
-                const profit = parseFloat(row.predicted_profit) || 0;
-                const opCost = parseFloat(row.predicted_operational_cost) || 0;
-                const qty = parseFloat(row.quantity) || 1;
-
-                sumProfit += profit * qty;
-                sumOpCost += opCost * qty;
-
-                // Usar ganancia_real del DB si existe, sino calcular
-                if (row.ganancia_real !== undefined && row.ganancia_real !== null) {
-                    sumGananciaReal += parseFloat(row.ganancia_real) * qty;
-                } else {
-                    const unitPrice = parseFloat(row.unit_price) || 0;
-                    const predPrice = parseFloat(row.predicted_price) || 0;
-                    sumGananciaReal += (profit + (unitPrice - predPrice)) * qty;
-                }
+            if (row.ganancia_real !== undefined && row.ganancia_real !== null) {
+                sumGananciaReal += parseFloat(row.ganancia_real) * qty;
+            } else {
+                const unitPrice = parseFloat(row.unit_price) || 0;
+                const predPrice = parseFloat(row.predicted_price) || 0;
+                sumGananciaReal += (profit + (unitPrice - predPrice)) * qty;
             }
         }
 
-        // 2. Sumas de financial_movements por bucket (all time)
-        // Los montos son NEGATIVOS (retiros), al sumarlos se restan del saldo
-        const { data: fmRows } = await supabase
-            .from('financial_movements')
-            .select('bucket, amount');
+        // 2. Financial Movements
+        let fmQuery = supabase.from('financial_movements').select('bucket, amount');
+        if (monthVal) {
+            fmQuery = fmQuery.gte('created_at', startDate).lt('created_at', endDate);
+        }
+        const { data: fmRows } = await fmQuery;
 
         let fmGanancia = 0, fmOpCost = 0;
         if (fmRows) {
@@ -740,13 +749,12 @@ const CuentasUI = {
             }
         }
 
-        // 3. Calcular saldos
-        // sumProfit = total ganancia de ventas (positivo)
-        // fmGanancia = total retiros de ganancia (negativo)
-        // saldo = ganado - retirado = sumProfit + fmGanancia (porque fmGanancia ya es negativo)
+        // 3. Totales
         const saldoGanancia = sumProfit + fmGanancia;
         const saldoGananciaReal = sumGananciaReal + fmGanancia;
         const saldoOpCost = sumOpCost + fmOpCost;
+
+        const labelSuffix = monthVal ? 'del Mes' : 'Disponible';
 
         console.log('[Cuentas] Cards:', { sumProfit, sumGananciaReal, sumOpCost, fmGanancia, fmOpCost, saldoGanancia, saldoGananciaReal, saldoOpCost });
 
@@ -754,15 +762,15 @@ const CuentasUI = {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div class="dash-card" style="--card-accent: #39FF14;">
                 <div class="card-value text-[#39FF14]">${Utils.formatCurrency(saldoGanancia)}</div>
-                <div class="card-label">Ganancia Disponible</div>
+                <div class="card-label">Ganancia ${labelSuffix}</div>
             </div>
             <div class="dash-card" style="--card-accent: #00F5FF;">
                 <div class="card-value text-cyan-400">${Utils.formatCurrency(saldoGananciaReal)}</div>
-                <div class="card-label">Ganancia Real Disponible</div>
+                <div class="card-label">Ganancia Real ${labelSuffix}</div>
             </div>
             <div class="dash-card" style="--card-accent: #FF6B00;">
                 <div class="card-value text-orange-400">${Utils.formatCurrency(saldoOpCost)}</div>
-                <div class="card-label">Costo Operativo Disponible</div>
+                <div class="card-label">Costo Operativo ${labelSuffix}</div>
             </div>
         </div>`;
     },
@@ -1051,11 +1059,12 @@ const CuentasUI = {
 
             <div id="tab-material" class="hidden">
                 <div class="mb-4">
-                    <label class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 block font-bold">Material</label>
-                    <input type="text" id="mv-mat-search" placeholder="Buscar material..."
-                        class="w-full px-3 py-2 text-sm" oninput="CuentasUI._searchMaterials(this.value)">
-                    <div id="mv-mat-suggestions" class="max-h-28 overflow-y-auto mt-1 no-scrollbar"></div>
-                    <div id="mv-mat-selected" class="mt-2"></div>
+                    <label class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 block font-bold">Ubicación / Material</label>
+                    <div id="mv-mat-hierarchy" class="space-y-2">
+                        <!-- Cascading selects will go here -->
+                        <div class="text-xs text-zinc-500 py-1"><i class="ph ph-circle-notch ph-spin"></i> Cargando...</div>
+                    </div>
+                    <div id="mv-mat-selected" class="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded hidden"></div>
                 </div>
                 <div class="mb-4">
                     <label class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 block font-bold">Cantidad</label>
@@ -1089,6 +1098,7 @@ const CuentasUI = {
 
         // Reset selected material
         CuentasUI._selectedMaterialId = null;
+        CuentasUI._initMaterialHierarchy();
     },
 
     _selectedMaterialId: null,
@@ -1112,57 +1122,116 @@ const CuentasUI = {
         }
     },
 
-    // --- MATERIAL SEARCH ---
-    _searchMaterials: async (query) => {
-        const suggestions = document.getElementById('mv-mat-suggestions');
-        const q = (query || '').toLowerCase().trim();
-        if (!q) { suggestions.innerHTML = ''; return; }
+    // --- MATERIAL HIERARCHY ---
+    _initMaterialHierarchy: async () => {
+        const container = document.getElementById('mv-mat-hierarchy');
+        if (!container) return;
+        
+        container.innerHTML = '<div class="text-xs text-zinc-500 py-1"><i class="ph ph-circle-notch ph-spin"></i> Cargando Docks...</div>';
+        
+        const supabase = window.supabaseClient;
+        const { data } = await supabase.from('materials').select('id, name').is('parent_id', null).order('name');
+        
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="text-xs text-zinc-500">No hay ubicaciones raíz.</div>';
+            return;
+        }
+        
+        container.innerHTML = '';
+        CuentasUI._renderHierarchySelect(0, data, 'NODO');
+    },
 
-        // Load & cache materials on first search
-        if (!CuentasUI._materials) {
-            const supabase = window.supabaseClient;
-            const { data } = await supabase
-                .from('materials')
-                .select('id, name, parent_id, current_quantity, unit_measure');
+    _renderHierarchySelect: (level, items, label) => {
+        const container = document.getElementById('mv-mat-hierarchy');
+        
+        // Remove any selects that are at this level or deeper
+        const existingSelects = container.querySelectorAll('.hier-select');
+        existingSelects.forEach(sel => {
+            if (parseInt(sel.dataset.level) >= level) sel.remove();
+        });
+        
+        // Reset selected material when hierarchy changes above it
+        CuentasUI._clearMaterial();
+        
+        if (!items || items.length === 0) return;
+        
+        const select = document.createElement('select');
+        select.className = 'w-full px-3 py-2 text-sm bg-black border border-zinc-700 text-white hier-select mb-2';
+        select.dataset.level = level;
+        
+        let placeholder = '';
+        switch(level) {
+            case 0: placeholder = 'Seleccionar Nodo (Dock)...'; break;
+            case 1: placeholder = 'Seleccionar Sección...'; break;
+            case 2: placeholder = 'Seleccionar Cuadrante...'; break;
+            case 3: placeholder = 'Seleccionar Celda...'; break;
+            default: placeholder = 'Seleccionar Ítem...'; break;
+        }
+        
+        select.innerHTML = `<option value="">-- ${placeholder} --</option>` + items.map(i => {
+            // Include stock info if it's a leaf item (has unit_measure)
+            const stockStr = i.unit_measure ? ` (Stock: ${i.current_quantity || 0} ${i.unit_measure})` : '';
+            return `<option value="${i.id}" data-name="${i.name}" data-qty="${i.current_quantity||0}" data-unit="${i.unit_measure||''}">${i.name}${stockStr}</option>`;
+        }).join('');
+        
+        select.onchange = (e) => CuentasUI._onHierarchyChange(level, e.target);
+        
+        container.appendChild(select);
+    },
 
-            if (data) {
-                // Find leaf materials (no children)
-                const parentIds = new Set(data.filter(m => m.parent_id).map(m => m.parent_id));
-                CuentasUI._materials = data.filter(m => !parentIds.has(m.id));
-            } else {
-                CuentasUI._materials = [];
+    _onHierarchyChange: async (level, selectEl) => {
+        const val = selectEl.value;
+        const selectedOption = selectEl.options[selectEl.selectedIndex];
+        
+        // Limpiar niveles inferiores y selección actual
+        const container = document.getElementById('mv-mat-hierarchy');
+        container.querySelectorAll('.hier-select').forEach(sel => {
+            if (parseInt(sel.dataset.level) > level) sel.remove();
+        });
+        CuentasUI._clearMaterial();
+        
+        if (!val) return;
+        
+        const supabase = window.supabaseClient;
+        const { data } = await supabase.from('materials').select('id, name, current_quantity, unit_measure').eq('parent_id', val).order('name');
+        
+        if (data && data.length > 0) {
+            // It has children, render next level
+            CuentasUI._renderHierarchySelect(level + 1, data);
+        } else {
+            // It's a leaf node! Select it.
+            const name = selectedOption.dataset.name;
+            const qty = selectedOption.dataset.qty;
+            const unit = selectedOption.dataset.unit;
+            
+            // Only select if it's a real item (has unit_measure, not just an empty folder)
+            if (unit) {
+                CuentasUI._selectMaterial(val, name, qty, unit);
             }
         }
-
-        const matches = CuentasUI._materials
-            .filter(m => m.name && m.name.toLowerCase().includes(q))
-            .slice(0, 8);
-
-        suggestions.innerHTML = matches.map(m => `
-            <div onclick="CuentasUI._selectMaterial(${m.id}, '${m.name.replace(/'/g, "\\'")}', ${m.current_quantity || 0}, '${m.unit_measure || ''}')"
-                 class="px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 cursor-pointer border-b border-zinc-800/50 flex justify-between">
-                <span class="truncate">${m.name}</span>
-                <span class="text-zinc-600 font-mono shrink-0 ml-2">${m.current_quantity || 0} ${m.unit_measure || ''}</span>
-            </div>
-        `).join('');
     },
 
     _selectMaterial: (id, name, qty, unit) => {
         CuentasUI._selectedMaterialId = id;
-        document.getElementById('mv-mat-search').value = '';
-        document.getElementById('mv-mat-suggestions').innerHTML = '';
-        document.getElementById('mv-mat-selected').innerHTML = `
-            <div class="flex items-center gap-2 px-3 py-2 bg-cyan-900/20 border border-cyan-800 text-xs">
-                <i class="ph ph-flask text-cyan-400"></i>
-                <span class="text-white flex-1">${name}</span>
-                <span class="text-zinc-500 font-mono">${qty} ${unit}</span>
-                <button onclick="CuentasUI._clearMaterial()" class="text-zinc-500 hover:text-white">✕</button>
+        const selContainer = document.getElementById('mv-mat-selected');
+        selContainer.classList.remove('hidden');
+        selContainer.innerHTML = `
+            <div class="flex items-center gap-2 text-xs">
+                <i class="ph ph-flask text-cyan-400 text-lg"></i>
+                <div class="flex-1">
+                    <div class="text-white font-bold">${name}</div>
+                    <div class="text-zinc-500 font-mono">Stock actual: ${qty} ${unit}</div>
+                </div>
             </div>`;
     },
 
     _clearMaterial: () => {
         CuentasUI._selectedMaterialId = null;
-        document.getElementById('mv-mat-selected').innerHTML = '';
+        const selContainer = document.getElementById('mv-mat-selected');
+        if (selContainer) {
+            selContainer.classList.add('hidden');
+            selContainer.innerHTML = '';
+        }
     },
 
     // --- SUBMIT MONEY MOVEMENT ---
