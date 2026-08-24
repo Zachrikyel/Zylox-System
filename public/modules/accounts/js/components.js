@@ -16,12 +16,77 @@ const CuentasUI = {
     init: async () => {
         // Mes por defecto = mes actual
         const now = new Date();
-        const monthInput = document.getElementById('dashboard-month');
-        if (monthInput) {
-            const y = now.getFullYear();
-            const m = String(now.getMonth() + 1).padStart(2, '0');
-            monthInput.value = `${y}-${m}`;
+        const y = now.getFullYear();
+        const m = now.getMonth(); // 0-indexed
+        CuentasUI._pickerYear = y;
+        CuentasUI._pickerMonth = m;
+        CuentasUI._setMonthValue(y, m);
+    },
+
+    // =============================================================
+    // MONTH PICKER
+    // =============================================================
+    _MONTH_NAMES: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+    _MONTH_FULL: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+    _pickerYear: 2026,
+    _pickerMonth: 0,
+
+    _setMonthValue: (year, month) => {
+        const mStr = String(month + 1).padStart(2, '0');
+        document.getElementById('dashboard-month').value = `${year}-${mStr}`;
+        document.getElementById('month-picker-label').textContent = `${CuentasUI._MONTH_FULL[month]} ${year}`;
+    },
+
+    toggleMonthPicker: () => {
+        const dd = document.getElementById('month-picker-dropdown');
+        const isHidden = dd.classList.contains('hidden');
+        if (isHidden) {
+            dd.classList.remove('hidden');
+            CuentasUI._renderPickerGrid();
+        } else {
+            dd.classList.add('hidden');
         }
+    },
+
+    changePickerYear: (delta) => {
+        CuentasUI._pickerYear += delta;
+        CuentasUI._renderPickerGrid();
+    },
+
+    _renderPickerGrid: () => {
+        const grid = document.getElementById('picker-months-grid');
+        document.getElementById('picker-year-label').textContent = CuentasUI._pickerYear;
+
+        const now = new Date();
+        const curYear = now.getFullYear();
+        const curMonth = now.getMonth();
+
+        grid.innerHTML = CuentasUI._MONTH_NAMES.map((name, idx) => {
+            const isSelected = CuentasUI._pickerYear === CuentasUI._pickerYear && idx === CuentasUI._pickerMonth
+                && document.getElementById('dashboard-month').value === `${CuentasUI._pickerYear}-${String(idx + 1).padStart(2, '0')}`;
+            const isFuture = CuentasUI._pickerYear > curYear || (CuentasUI._pickerYear === curYear && idx > curMonth);
+            const isCurrent = CuentasUI._pickerYear === curYear && idx === curMonth;
+
+            let cls = 'py-2 text-xs font-mono uppercase tracking-wider transition-all ';
+            if (isSelected) {
+                cls += 'bg-purple-600 text-white font-bold';
+            } else if (isCurrent) {
+                cls += 'bg-zinc-800 text-purple-400 font-bold hover:bg-purple-600/30';
+            } else if (isFuture) {
+                cls += 'text-zinc-700 cursor-not-allowed';
+            } else {
+                cls += 'text-zinc-400 hover:bg-zinc-800 hover:text-white';
+            }
+
+            return `<button ${isFuture ? 'disabled' : ''} onclick="CuentasUI.selectMonth(${idx})" class="${cls}">${name}</button>`;
+        }).join('');
+    },
+
+    selectMonth: (monthIdx) => {
+        CuentasUI._pickerMonth = monthIdx;
+        CuentasUI._setMonthValue(CuentasUI._pickerYear, monthIdx);
+        document.getElementById('month-picker-dropdown').classList.add('hidden');
+        CuentasUI.loadDashboard();
     },
 
     // =============================================================
@@ -583,33 +648,59 @@ const CuentasUI = {
         if (!supabase) return '';
 
         // 1. Sumas de order_items (all time)
-        const { data: oiData, error: oiErr } = await supabase
-            .rpc('get_order_items_sums');
+        // predicted_profit = ganancia calculada
+        // predicted_operational_cost = costo operativo
+        // ganancia_real = columna generada (predicted_profit + (unit_price*quantity - predicted_price*quantity))
+        // Si ganancia_real no existe como columna generada, la calculamos manualmente.
+        const { data: oiRows, error: oiErr } = await supabase
+            .from('order_items')
+            .select('predicted_profit, predicted_operational_cost, unit_price, quantity, predicted_price, ganancia_real');
 
-        // Fallback: query manual si el RPC no existe
         let sumProfit = 0, sumGananciaReal = 0, sumOpCost = 0;
 
         if (oiErr) {
-            // Query directa
-            const { data: oiRows } = await supabase
+            console.warn('Error leyendo order_items:', oiErr.message);
+            // Intentar sin ganancia_real (por si no existe la columna)
+            const { data: fallbackRows } = await supabase
                 .from('order_items')
-                .select('predicted_profit, ganancia_real, predicted_operational_cost');
+                .select('predicted_profit, predicted_operational_cost, unit_price, quantity, predicted_price');
 
-            if (oiRows) {
-                for (const row of oiRows) {
-                    sumProfit += parseFloat(row.predicted_profit) || 0;
-                    sumGananciaReal += parseFloat(row.ganancia_real) || 0;
-                    sumOpCost += parseFloat(row.predicted_operational_cost) || 0;
+            if (fallbackRows) {
+                for (const row of fallbackRows) {
+                    const profit = parseFloat(row.predicted_profit) || 0;
+                    const opCost = parseFloat(row.predicted_operational_cost) || 0;
+                    const unitPrice = parseFloat(row.unit_price) || 0;
+                    const qty = parseFloat(row.quantity) || 1;
+                    const predPrice = parseFloat(row.predicted_price) || 0;
+
+                    sumProfit += profit * qty;
+                    sumOpCost += opCost * qty;
+                    // ganancia_real = profit + (precio real venta - precio sugerido) por unidad * qty
+                    sumGananciaReal += (profit + (unitPrice - predPrice)) * qty;
                 }
             }
-        } else if (oiData) {
-            // RPC retorna un objeto con sumas
-            sumProfit = parseFloat(oiData.sum_profit) || 0;
-            sumGananciaReal = parseFloat(oiData.sum_ganancia_real) || 0;
-            sumOpCost = parseFloat(oiData.sum_operational_cost) || 0;
+        } else if (oiRows) {
+            for (const row of oiRows) {
+                const profit = parseFloat(row.predicted_profit) || 0;
+                const opCost = parseFloat(row.predicted_operational_cost) || 0;
+                const qty = parseFloat(row.quantity) || 1;
+
+                sumProfit += profit * qty;
+                sumOpCost += opCost * qty;
+
+                // Usar ganancia_real del DB si existe, sino calcular
+                if (row.ganancia_real !== undefined && row.ganancia_real !== null) {
+                    sumGananciaReal += parseFloat(row.ganancia_real) * qty;
+                } else {
+                    const unitPrice = parseFloat(row.unit_price) || 0;
+                    const predPrice = parseFloat(row.predicted_price) || 0;
+                    sumGananciaReal += (profit + (unitPrice - predPrice)) * qty;
+                }
+            }
         }
 
         // 2. Sumas de financial_movements por bucket (all time)
+        // Los montos son NEGATIVOS (retiros), al sumarlos se restan del saldo
         const { data: fmRows } = await supabase
             .from('financial_movements')
             .select('bucket, amount');
@@ -624,9 +715,14 @@ const CuentasUI = {
         }
 
         // 3. Calcular saldos
+        // sumProfit = total ganancia de ventas (positivo)
+        // fmGanancia = total retiros de ganancia (negativo)
+        // saldo = ganado - retirado = sumProfit + fmGanancia (porque fmGanancia ya es negativo)
         const saldoGanancia = sumProfit + fmGanancia;
         const saldoGananciaReal = sumGananciaReal + fmGanancia;
         const saldoOpCost = sumOpCost + fmOpCost;
+
+        console.log('[Cuentas] Cards:', { sumProfit, sumGananciaReal, sumOpCost, fmGanancia, fmOpCost, saldoGanancia, saldoGananciaReal, saldoOpCost });
 
         return `
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -684,16 +780,28 @@ const CuentasUI = {
         }
 
         try {
-            // Query: order_items del mes con producto
-            const { data: oi, error } = await supabase
-                .from('order_items')
-                .select('quantity, product_id, products(name, is_stock_item), order_id, orders!inner(created_at)')
-                .gte('orders.created_at', startDate)
-                .lt('orders.created_at', endDate);
+            // Primero obtener las órdenes del mes
+            const { data: orders, error: ordErr } = await supabase
+                .from('orders')
+                .select('id')
+                .gte('created_at', startDate)
+                .lt('created_at', endDate);
 
-            if (error) throw error;
+            if (ordErr) throw ordErr;
 
-            const items = oi || [];
+            const orderIds = (orders || []).map(o => o.id);
+
+            let items = [];
+            if (orderIds.length > 0) {
+                // Luego obtener los order_items de esas órdenes
+                const { data: oi, error: oiErr } = await supabase
+                    .from('order_items')
+                    .select('quantity, product_id, products(name, is_stock_item)')
+                    .in('order_id', orderIds);
+
+                if (oiErr) throw oiErr;
+                items = oi || [];
+            }
 
             // --- Top Productos ---
             const prodCounts = {};

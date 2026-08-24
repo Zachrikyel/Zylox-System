@@ -58,8 +58,27 @@
         <div id="view-dashboard" class="absolute inset-0 hidden flex-col animate-fade-in z-40 overflow-y-auto">
             <div class="p-4 border-b border-zinc-800 flex items-center gap-3 sticky top-0 bg-black/80 backdrop-blur-md z-10">
                 <button onclick="CuentasUI.switchView('home')" class="text-zinc-500 hover:text-white"><i class="ph ph-arrow-left text-xl"></i></button>
-                <input type="month" id="dashboard-month" onchange="CuentasUI.loadDashboard()"
-                    class="bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500" />
+                <div class="relative flex-1">
+                    <button id="month-picker-btn" onclick="CuentasUI.toggleMonthPicker()"
+                        class="bg-zinc-900 border border-zinc-800 px-4 py-2 text-xs text-white font-mono uppercase tracking-wider hover:border-purple-500 transition-colors flex items-center gap-2 w-full justify-between">
+                        <span id="month-picker-label">—</span>
+                        <i class="ph ph-caret-down text-zinc-500"></i>
+                    </button>
+                    <div id="month-picker-dropdown" class="hidden absolute top-full left-0 right-0 mt-1 bg-zinc-950 border border-zinc-700 shadow-xl shadow-black/50 z-50">
+                        <div class="flex items-center justify-between p-2 border-b border-zinc-800">
+                            <button onclick="CuentasUI.changePickerYear(-1)" class="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
+                                <i class="ph ph-caret-left"></i>
+                            </button>
+                            <span id="picker-year-label" class="text-sm font-bold text-purple-400 font-mono"></span>
+                            <button onclick="CuentasUI.changePickerYear(1)" class="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
+                                <i class="ph ph-caret-right"></i>
+                            </button>
+                        </div>
+                        <div id="picker-months-grid" class="grid grid-cols-3 gap-1 p-2"></div>
+                    </div>
+                </div>
+                <!-- hidden input to hold the value -->
+                <input type="hidden" id="dashboard-month" />
             </div>
             <div id="dashboard-container" class="p-4 space-y-4 pb-24"></div>
             <button onclick="CuentasUI.openMovementForm()"
