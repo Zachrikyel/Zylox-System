@@ -340,9 +340,10 @@ function ProductInspector() {
 
                 <div class="space-y-3">
                     <label class="text-[#39FF14] text-[10px] font-bold uppercase tracking-widest">Control</label>
-                    <div class="flex gap-3">
-                        <button onclick="updateInspectorData('is_published', !window.inspectorState.product.is_published); renderModule()" class="flex-1 py-2 border ${p.is_published ? 'border-[#39FF14] bg-[#39FF14]/10 text-[#39FF14]' : 'border-zinc-800 text-zinc-600'} text-[10px] font-bold uppercase">${p.is_published ? 'Público' : 'Oculto'}</button>
-                        <button onclick="updateInspectorData('is_trending', !window.inspectorState.product.is_trending); renderModule()" class="flex-1 py-2 border ${p.is_trending ? 'border-yellow-500 bg-yellow-500/10 text-yellow-400' : 'border-zinc-800 text-zinc-600'} text-[10px] font-bold uppercase">${p.is_trending ? 'Tendencia' : 'Normal'}</button>
+                    <div class="flex gap-2">
+                        <button onclick="updateInspectorData('is_published', !window.inspectorState.product.is_published); renderModule()" class="flex-1 py-2 border ${p.is_published ? 'border-[#39FF14] bg-[#39FF14]/10 text-[#39FF14]' : 'border-zinc-800 text-zinc-600'} text-[9px] font-bold uppercase">${p.is_published ? 'Público' : 'Oculto'}</button>
+                        <button onclick="updateInspectorData('is_trending', !window.inspectorState.product.is_trending); renderModule()" class="flex-1 py-2 border ${p.is_trending ? 'border-yellow-500 bg-yellow-500/10 text-yellow-400' : 'border-zinc-800 text-zinc-600'} text-[9px] font-bold uppercase">${p.is_trending ? 'Tendencia' : 'Normal'}</button>
+                        <button onclick="updateInspectorData('is_stock_item', !(window.inspectorState.product.is_stock_item !== false)); renderModule()" class="flex-1 py-2 border ${p.is_stock_item !== false ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-purple-500 bg-purple-500/10 text-purple-400'} text-[9px] font-bold uppercase">${p.is_stock_item !== false ? 'Stock' : 'Custom'}</button>
                     </div>
                     <div class="flex items-center justify-between p-3 bg-zinc-800 rounded-lg border ${p.is_free_shipping ? 'border-green-500/50' : 'border-zinc-700'}">
                         <div class="flex items-center gap-2"><span class="text-sm">🚚</span><div><span class="text-[10px] font-bold text-white uppercase">Envío Gratis</span><div class="text-[9px] text-zinc-500">Producto con envío gratuito</div></div></div>
@@ -504,8 +505,9 @@ window.updateArsenalFilter = (val) => {
     window.arsenalState.filter = val;
     // Solo actualizar la lista sin re-renderizar todo (preserva foco del input)
     const term = val.toLowerCase();
-    const filtered = term
-        ? window.arsenalState.items.filter(p => p.name.toLowerCase().includes(term) || p.sku.toLowerCase().includes(term))
+    const terms = term.split(' ').filter(Boolean);
+    const filtered = terms.length
+        ? window.arsenalState.items.filter(p => terms.every(t => p.name.toLowerCase().includes(t) || p.sku.toLowerCase().includes(t)))
         : window.arsenalState.items;
 
     const listContainer = document.querySelector('main.space-y-3');

@@ -32,6 +32,14 @@ const CuentasUI = {
     _pickerMonth: 0,
 
     _setMonthValue: (year, month) => {
+        if (year === null) {
+            // "Todo" mode
+            document.getElementById('dashboard-month').value = '';
+            document.getElementById('month-picker-label').textContent = '📊 Todo el Historial';
+            CuentasUI._pickerYear = new Date().getFullYear();
+            CuentasUI._pickerMonth = -1;
+            return;
+        }
         const mStr = String(month + 1).padStart(2, '0');
         document.getElementById('dashboard-month').value = `${year}-${mStr}`;
         document.getElementById('month-picker-label').textContent = `${CuentasUI._MONTH_FULL[month]} ${year}`;
@@ -60,10 +68,19 @@ const CuentasUI = {
         const now = new Date();
         const curYear = now.getFullYear();
         const curMonth = now.getMonth();
+        const selectedVal = document.getElementById('dashboard-month').value;
 
-        grid.innerHTML = CuentasUI._MONTH_NAMES.map((name, idx) => {
-            const isSelected = CuentasUI._pickerYear === CuentasUI._pickerYear && idx === CuentasUI._pickerMonth
-                && document.getElementById('dashboard-month').value === `${CuentasUI._pickerYear}-${String(idx + 1).padStart(2, '0')}`;
+        // Botón "Todo"
+        const isAllSelected = selectedVal === '';
+        const allCls = isAllSelected
+            ? 'col-span-3 py-2 text-xs font-mono uppercase tracking-wider bg-purple-600 text-white font-bold mb-1'
+            : 'col-span-3 py-2 text-xs font-mono uppercase tracking-wider text-zinc-400 hover:bg-zinc-800 hover:text-white mb-1';
+
+        let html = `<button onclick="CuentasUI.selectAllMonths()" class="${allCls}">📊 Todo el Historial</button>`;
+
+        html += CuentasUI._MONTH_NAMES.map((name, idx) => {
+            const monthKey = `${CuentasUI._pickerYear}-${String(idx + 1).padStart(2, '0')}`;
+            const isSelected = selectedVal === monthKey;
             const isFuture = CuentasUI._pickerYear > curYear || (CuentasUI._pickerYear === curYear && idx > curMonth);
             const isCurrent = CuentasUI._pickerYear === curYear && idx === curMonth;
 
@@ -80,11 +97,20 @@ const CuentasUI = {
 
             return `<button ${isFuture ? 'disabled' : ''} onclick="CuentasUI.selectMonth(${idx})" class="${cls}">${name}</button>`;
         }).join('');
+
+        grid.innerHTML = html;
     },
 
     selectMonth: (monthIdx) => {
         CuentasUI._pickerMonth = monthIdx;
         CuentasUI._setMonthValue(CuentasUI._pickerYear, monthIdx);
+        document.getElementById('month-picker-dropdown').classList.add('hidden');
+        CuentasUI.loadDashboard();
+    },
+
+    selectAllMonths: () => {
+        CuentasUI._pickerMonth = -1;
+        CuentasUI._setMonthValue(null, null);
         document.getElementById('month-picker-dropdown').classList.add('hidden');
         CuentasUI.loadDashboard();
     },
@@ -767,33 +793,35 @@ const CuentasUI = {
         if (CuentasUI._charts.topProducts) CuentasUI._charts.topProducts.destroy();
         if (CuentasUI._charts.stockCustom) CuentasUI._charts.stockCustom.destroy();
 
-        // Parsear mes
-        let startDate, endDate;
-        if (monthVal) {
-            const [year, month] = monthVal.split('-').map(Number);
-            startDate = new Date(year, month - 1, 1).toISOString();
-            endDate = new Date(year, month, 1).toISOString();
-        } else {
-            const now = new Date();
-            startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
-        }
-
         try {
-            // Primero obtener las órdenes del mes
-            const { data: orders, error: ordErr } = await supabase
-                .from('orders')
-                .select('id')
-                .gte('created_at', startDate)
-                .lt('created_at', endDate);
+            let orderIds;
 
-            if (ordErr) throw ordErr;
+            if (monthVal) {
+                // Filtrar por mes
+                const [year, month] = monthVal.split('-').map(Number);
+                const startDate = new Date(year, month - 1, 1).toISOString();
+                const endDate = new Date(year, month, 1).toISOString();
 
-            const orderIds = (orders || []).map(o => o.id);
+                const { data: orders, error: ordErr } = await supabase
+                    .from('orders')
+                    .select('id')
+                    .gte('created_at', startDate)
+                    .lt('created_at', endDate);
+
+                if (ordErr) throw ordErr;
+                orderIds = (orders || []).map(o => o.id);
+            } else {
+                // Todo el historial
+                const { data: orders, error: ordErr } = await supabase
+                    .from('orders')
+                    .select('id');
+
+                if (ordErr) throw ordErr;
+                orderIds = (orders || []).map(o => o.id);
+            }
 
             let items = [];
             if (orderIds.length > 0) {
-                // Luego obtener los order_items de esas órdenes
                 const { data: oi, error: oiErr } = await supabase
                     .from('order_items')
                     .select('quantity, product_id, products(name, is_stock_item)')
