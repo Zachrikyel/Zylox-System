@@ -507,7 +507,7 @@ window.updateArsenalFilter = (val) => {
     const term = val.toLowerCase();
     const terms = term.split(' ').filter(Boolean);
     const filtered = terms.length
-        ? window.arsenalState.items.filter(p => terms.every(t => p.name.toLowerCase().includes(t) || p.sku.toLowerCase().includes(t)))
+        ? window.arsenalState.items.filter(p => terms.every(t => p.name && p.name.toLowerCase().includes(t)))
         : window.arsenalState.items;
 
     const listContainer = document.querySelector('main.space-y-3');

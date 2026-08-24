@@ -147,7 +147,7 @@ const OrdersUI = {
         items.forEach(p => {
             const el = document.getElementById(`step1-item-${p.id}`);
             if (el) {
-                if (!q || p.name.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q))) {
+                if (!q || (p.name && p.name.toLowerCase().includes(q))) {
                     el.classList.remove('hidden');
                 } else {
                     el.classList.add('hidden');
@@ -178,33 +178,43 @@ const OrdersUI = {
                 if (id) imgUrl = `/api/drive-proxy?id=${id}`;
             }
 
-            const rowBorderCls = isSelected ? 'border-l-4 border-l-[#39FF14] bg-zinc-800/80 border border-zinc-700 border-l-[#39FF14]' : 'border-l-4 border-l-zinc-700 bg-zinc-900/50 border border-zinc-800/50 hover:bg-zinc-800 hover:border-zinc-700';
-            const iconCls = OrdersUI.state.isComboMode ? 'ph-package' : 'ph-cube';
+            const stockColor = p.stock_quantity > 20 ? 'text-[#39FF14]' : (p.stock_quantity > 5 ? 'text-yellow-400' : 'text-red-500');
+            const borderCls = isSelected ? 'border-[#39FF14]' : 'border-zinc-800';
+            const bgCls = isSelected ? 'bg-zinc-800/80' : 'bg-zinc-900';
 
             return `
-            <div id="step1-item-${p.id}" onclick="WizardLogic.toggleProductSelection(${p.id})" 
-                 class="inventory-row flex items-center gap-3 p-3 cursor-pointer transition-all ${rowBorderCls}">
-                 
-                <div class="shrink-0 w-12 h-12 bg-black border border-zinc-800 rounded flex items-center justify-center p-1 relative cyber-shape relative">
-                    ${imgUrl ? `<img src="${imgUrl}" class="max-h-full max-w-full object-contain ${isSelected ? 'scale-110 drop-shadow-[0_0_8px_rgba(57,255,20,0.5)]' : ''} transition-transform">` : `<i class="ph ${iconCls} text-xl text-zinc-600"></i>`}
-                    ${isSelected ? `<div class="absolute -top-2 -right-2 bg-black rounded-full text-[#39FF14]"><i class="ph-fill ph-check-circle text-lg"></i></div>` : ''}
-                </div>
+            <div id="step1-item-${p.id}" onclick="WizardLogic.toggleProductSelection(${p.id})" class="${bgCls} border ${borderCls} h-28 flex cursor-pointer hover:border-[#39FF14] transition-all group overflow-hidden relative" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
                 
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2">
-                        <h3 class="text-xs font-bold text-white uppercase truncate">${p.name}</h3>
-                        ${OrdersUI.state.isComboMode ? '<span class="text-[8px] bg-purple-500/20 text-purple-400 px-1 py-0.5 border border-purple-500/30 rounded font-bold uppercase tracking-wider">Combo</span>' : ''}
-                    </div>
-                    <div class="flex items-center gap-3 mt-1">
-                        <span class="text-[9px] text-zinc-500 font-mono">Stock: <span class="${p.stock_quantity > 0 ? 'text-zinc-300' : 'text-red-400 font-bold'}">${p.stock_quantity || 0}</span></span>
-                        ${p.sku ? `<span class="text-[9px] text-zinc-600 font-mono">#${p.sku}</span>` : ''}
+                ${isSelected ? `<div class="absolute top-2 right-2 text-[#39FF14] z-10 bg-black/80 rounded-full p-0.5 shadow-[0_0_8px_rgba(57,255,20,0.5)]"><i class="ph-fill ph-check-circle text-xl"></i></div>` : ''}
+
+                <div class="w-24 h-full bg-zinc-950 flex-shrink-0 relative border-r border-zinc-800">
+                    ${imgUrl 
+                        ? `<img src="${imgUrl}" class="w-full h-full object-cover opacity-80 ${isSelected ? 'opacity-100 scale-110' : 'group-hover:opacity-100'} transition-all" />` 
+                        : `<div class="w-full h-full flex items-center justify-center text-zinc-700"><i class="ph ph-image text-2xl"></i></div>`}
+                    <div class="absolute top-0 left-0 bg-black/80 px-1.5 py-0.5 text-[8px] font-mono text-zinc-400 border-b border-r border-zinc-800">
+                        #${p.display_order || '0'}
                     </div>
                 </div>
                 
-                <div class="text-right shrink-0">
-                    <div class="text-xs font-mono font-bold ${isSelected ? 'text-[#39FF14]' : 'text-zinc-300'}">${Utils.formatCurrency(price)}</div>
+                <div class="flex-1 p-3 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-start gap-2">
+                            <h3 class="text-sm font-bold text-white uppercase leading-tight line-clamp-2">${p.name}</h3>
+                            ${OrdersUI.state.isComboMode ? '<span class="text-[8px] bg-purple-500/20 text-purple-400 px-1 py-0.5 border border-purple-500/30 rounded font-bold uppercase tracking-wider whitespace-nowrap">Combo</span>' : ''}
+                        </div>
+                        <span class="text-[10px] font-mono text-zinc-500 mt-0.5 block tracking-widest">${p.sku || 'SIN-SKU'}</span>
+                    </div>
+                    <div class="flex items-end justify-between border-t border-white/5 pt-2">
+                        <div class="flex flex-col">
+                            <span class="text-[9px] text-zinc-600 uppercase">Venta</span>
+                            <span class="text-sm font-mono font-bold text-[#39FF14]">${Utils.formatCurrency(price)}</span>
+                        </div>
+                        <div class="flex flex-col items-end">
+                            <span class="text-[9px] text-zinc-600 uppercase">Stock</span>
+                            <span class="text-xs font-mono ${stockColor}">${p.stock_quantity || 0} un.</span>
+                        </div>
+                    </div>
                 </div>
-                
             </div>`;
         }).join('');
         
@@ -445,6 +455,14 @@ function renderOrderEditorModal(order) {
                         </div>`;
                     }).join('')}
                     </div>
+                    
+                    <div class="mt-4 flex gap-2">
+                        <select id="add-product-select" class="flex-1 bg-black border border-zinc-700 p-2 text-xs text-white">
+                            <option value="">+ Seleccionar producto para agregar...</option>
+                            ${OrdersUI.state.products.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                        </select>
+                        <button type="button" onclick="handleAddProductToOrder(${order.id})" class="bg-zinc-800 text-[#39FF14] px-4 text-xs font-bold hover:bg-zinc-700 transition-colors border border-zinc-700">Agregar</button>
+                    </div>
                 </div>
                 
                 <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-zinc-800">
@@ -552,5 +570,62 @@ window.saveOrderChanges = async (orderId) => {
         showNotification("Error: " + e.message, "error");
         btn.disabled = false;
         btn.innerText = "Guardar Cambios";
+    }
+};
+
+window.handleAddProductToOrder = async (orderId) => {
+    const sel = document.getElementById('add-product-select');
+    const productId = parseInt(sel.value);
+    if (!productId) return Utils.notify("Selecciona un producto primero", "warning");
+
+    const p = OrdersUI.state.products.find(x => x.id === productId);
+    if (!p) return;
+
+    try {
+        const supabase = window.supabaseClient;
+        
+        // 1. Insertar order_item
+        const { data: insertedItem, error: itemErr } = await supabase.from('order_items').insert({
+            order_id: orderId,
+            product_id: productId,
+            quantity: 1,
+            unit_price: p.sale_price || p.base_price,
+            subtotal: p.sale_price || p.base_price,
+            selected_color: null,
+            selected_size: 'ÚNICA',
+            predicted_price: p.base_price || 0,
+            predicted_profit: p.profit_margin || 0,
+            predicted_operational_cost: (p.specific_kwh_cost || 0) + (p.specific_wear_cost || 0) + (p.specific_labor_cost || 0)
+        }).select().single();
+
+        if (itemErr) throw itemErr;
+
+        // 2. Traer la receta (bom) y crear quote_materials
+        const { data: bom } = await supabase.from('product_bom').select('*').eq('product_id', productId).is('product_color_id', null);
+        if (bom && bom.length > 0) {
+            const consumption = bom.map(r => ({
+                order_item_id: insertedItem.id,
+                material_id: r.material_id,
+                quantity: r.quantity_required
+            }));
+            await supabase.from('quote_materials').insert(consumption);
+        }
+
+        // 3. Descontar stock
+        const { data: prodDb } = await supabase.from('products').select('stock_quantity').eq('id', productId).single();
+        if (prodDb) {
+            await supabase.from('products').update({
+                stock_quantity: Math.max(0, prodDb.stock_quantity - 1)
+            }).eq('id', productId);
+        }
+
+        Utils.notify("Producto agregado", "success");
+        closeOrderEditor();
+        await OrdersUI.loadHistory();
+        window.openOrderEditor(orderId);
+
+    } catch (e) {
+        console.error(e);
+        Utils.notify("Error agregando producto: " + e.message, "error");
     }
 };
