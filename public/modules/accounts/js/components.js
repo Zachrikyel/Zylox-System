@@ -428,8 +428,8 @@ const CuentasUI = {
             const borderClass = isSelected ? 'border-purple-500 border-2' : 'border-zinc-800 border';
 
             return `
-            <div onclick="CuentasUI.toggleProductSelection(${p.id}, this)" class="bg-zinc-900 ${borderClass} h-28 flex transition-all cursor-pointer group overflow-hidden relative mb-2" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
-                <div class="w-24 h-full bg-zinc-950 flex-shrink-0 relative border-r border-zinc-800">
+            <div onclick="CuentasUI.toggleProductSelection(${p.id}, this)" class="bg-zinc-900 ${borderClass} min-h-[7rem] flex transition-all cursor-pointer group overflow-hidden relative mb-2" style="clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);">
+                <div class="w-24 min-h-[7rem] bg-zinc-950 flex-shrink-0 relative border-r border-zinc-800">
                     ${url
                     ? `<img src="${url}" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />`
                     : `<div class="w-full h-full flex items-center justify-center text-zinc-700"><i class="ph ph-image-square text-2xl"></i></div>`

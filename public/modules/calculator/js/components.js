@@ -504,7 +504,7 @@ function Calculator() {
                 <option value="">Selecciona...</option>
                 ${cachedFilament.items.map(m => `<option value="${m.id}" ${slot.materialId === m.id ? 'selected' : ''}>${m.display_name}${m.current_quantity <= 0 ? ' ⚠️' : ''}</option>`).join('')}
               </select>
-              <input type="text" inputmode="decimal" value="${slot.grams || ''}" oninput="window.calculatorState.print.colorSlots[${i}].grams = parseFloat(this.value) || 0" onblur="updateSlotGrams(${i}, this.value)" class="w-24 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-cyan-400 font-bold text-right focus:outline-none focus:border-cyan-500" placeholder="g" />
+              <input type="text" inputmode="decimal" value="${slot.grams || ''}" oninput="window.calculatorState.print.colorSlots[${i}].grams = parseFloat(this.value) || 0" onblur="updateSlotGrams(${i}, this.value)" class="w-16 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-3 text-sm text-cyan-400 font-bold text-right focus:outline-none focus:border-cyan-500" placeholder="g" />
               ${i > 0 ? `<button onclick="removeColorSlot(${i})" class="text-zinc-500 hover:text-red-400 px-2 text-lg">✕</button>` : `<div class="w-7"></div>`}
             </div>`).join('')}
           </div>
@@ -576,7 +576,9 @@ function Calculator() {
         isFreeShipping: true,
         supportsNeeded: false,
         supportsFragility: 'none',
-        supportsAmount: 'none'
+        supportsAmount: 'none',
+        packagingMaterialName: 'Kraft 70x100',
+        _packagingLabel: 'Corrugado Kraft 70x100'
       },
       pokeballs: {
         name: 'Pokeballs',
@@ -604,7 +606,9 @@ function Calculator() {
         isFreeShipping: true,
         supportsNeeded: true,
         supportsFragility: 'some',
-        supportsAmount: 'few'
+        supportsAmount: 'few',
+        packagingMaterialName: 'Industrial 50x70',
+        _packagingLabel: 'Industrial 50x70 2mm'
       },
       llaveros: {
         name: 'Llaveros',
@@ -632,12 +636,14 @@ function Calculator() {
         isFreeShipping: false,
         supportsNeeded: true,
         supportsFragility: 'some',
-        supportsAmount: 'none'
+        supportsAmount: 'none',
+        packagingMaterialName: 'Tela blanca 12x17',
+        _packagingLabel: 'Bolsa Tela blanca 12x17cm'
       }
     };
 
     // Función global para aplicar preset
-    window.applyPreset = (presetKey) => {
+    window.applyPreset = async (presetKey) => {
       const preset = PRODUCT_PRESETS[presetKey];
       if (!preset) return;
       // Marcar preset activo
@@ -663,11 +669,6 @@ function Calculator() {
       state.logistics.packagingType = preset.packagingType;
       state.logistics.packagingSize = preset.packagingSize;
       state.logistics.packagingCustom = preset.packagingCustom;
-      // Los presets aún no apuntan a una lámina real específica de tu inventario —
-      // se deja sin seleccionar para que elijas la lámina en el Paso 4 cada vez.
-      state.logistics.packagingMaterialId = null;
-      state.logistics.packagingCost = 0;
-      state.logistics.packagingIsCustom = false;
       state.logistics.additionalsToggle = preset.additionalsToggle;
       state.logistics.isFreeShipping = preset.isFreeShipping;
       state.logistics.evaToggle = !!preset.evaToggle;
@@ -676,6 +677,24 @@ function Calculator() {
       state.logistics.bubbleToggle = !!preset.bubbleToggle;
       state.logistics.glueToggle = !!preset.glueToggle;
       state.logistics.vinipelToggle = !!preset.vinipelToggle;
+
+      // Auto-seleccionar el material de empaque por nombre
+      state.logistics.packagingMaterialId = null;
+      state.logistics.packagingCost = 0;
+      state.logistics.packagingIsCustom = false;
+      if (preset.packagingMaterialName) {
+        const rootId = PACKAGING_ROOTS[preset.packagingType];
+        await loadMaterialOptions(rootId);
+        const cached = state._materialOptions && state._materialOptions[rootId];
+        if (cached && !cached.error) {
+          const match = cached.items.find(p => p.display_name && p.display_name.toLowerCase().includes(preset.packagingMaterialName.toLowerCase()));
+          if (match) {
+            state.logistics.packagingMaterialId = match.id;
+            state.logistics.packagingCost = Number(match.cost_per_unit) || 0;
+          }
+        }
+      }
+
       renderCalculatorWithScroll();
     };
 
@@ -728,10 +747,10 @@ function Calculator() {
               </div>
               <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-zinc-400 ml-9">
                 <div>• Complejidad: <span class="text-white font-semibold">${complexityLabel}</span></div>
-                <div>• Primer: <span class="${preset.primerToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.primerToggle ? 'Sí' : 'No'}</span></div>
-                <div>• Laca: <span class="${preset.lacquerToggle ? 'text-green-400' : 'text-zinc-600'}">${preset.lacquerToggle ? 'Sí' : 'No'}</span></div>
+                <div>• Insumos: <span class="text-white font-semibold">${[preset.primerToggle && 'Primer', preset.lacquerToggle && 'Laca', preset.sandingToggle && 'Lija', preset.paintToggle && 'Pintura', preset.brushToggle && 'Pinceles', preset.superglueToggle && 'Superbonder', preset.additionalsToggle && 'Imanes', preset.otherSuppliesToggle && 'Otros'].filter(Boolean).join(', ') || 'Ninguno'}</span></div>
                 <div>• Envío: <span class="text-white font-semibold">${preset.shipping === 'pickup' ? 'Recogida' : preset.shipping === 'local' ? 'Local' : 'Nacional'}</span></div>
-                <div>• Caja: <span class="text-white font-semibold">${preset.packagingSize === 'deluxe' ? 'Custom $' + preset.packagingCustom : 'Grande $5.000'}</span></div>
+                <div>• Empaque: <span class="text-white font-semibold">${preset.packagingType === 'box' ? '📦 Caja' : '🎒 Bolsa'}${preset._packagingLabel ? ' - ' + preset._packagingLabel : ''}</span></div>
+                <div>• Embalaje: <span class="text-white font-semibold">${[preset.evaToggle && 'EVA', preset.vinylToggle && 'Vinilo', preset.bubbleToggle && 'Burbuja', preset.glueToggle && 'Colbón', preset.vinipelToggle && 'Vinipel'].filter(Boolean).join(', ') || 'Ninguno'}</span></div>
                 <div>• Envío Gratis: <span class="${preset.isFreeShipping ? 'text-green-400' : 'text-zinc-600'}">${preset.isFreeShipping ? 'Sí' : 'No'}</span></div>
               </div>
             </button>`;
