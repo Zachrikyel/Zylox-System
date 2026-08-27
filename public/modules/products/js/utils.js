@@ -75,15 +75,19 @@ window.fetchPackagingOptions = async () => {
         const { data: allMaterials, error } = await supabase.from('materials').select('id, name, parent_id, sku');
         if (error) throw error;
         if (!allMaterials) return [];
-        const rootNode = allMaterials.find(m => m.name.toLowerCase().includes('embalaje') && !m.parent_id);
-        if (!rootNode) return [];
+        const targetRoots = allMaterials.filter(m => (m.id === 8 || m.id === 9) || (m.name.toLowerCase().includes('embalaje') && !m.parent_id));
+        if (targetRoots.length === 0) return [];
         const getDescendants = (parentId, dataset) => {
             let children = dataset.filter(item => item.parent_id === parentId);
             let descendants = [...children];
             children.forEach(child => { descendants = [...descendants, ...getDescendants(child.id, dataset)]; });
             return descendants;
         };
-        return getDescendants(rootNode.id, allMaterials).sort((a, b) => a.name.localeCompare(b.name));
+        let allDescendants = [];
+        targetRoots.forEach(root => {
+            allDescendants = [...allDescendants, ...getDescendants(root.id, allMaterials)];
+        });
+        return allDescendants.sort((a, b) => a.name.localeCompare(b.name));
     } catch (e) { console.error(e); return []; }
 };
 
@@ -107,7 +111,7 @@ window.fetchOrphanQuotes = async () => {
     if (!supabase) return [];
     const { data } = await supabase
         .from('sicma_quotes')
-        .select('id, quote_name, results, config, print_data, created_at')
+        .select('id, quote_name, results, config, print_data, logistics, is_free_shipping, created_at')
         .is('product_id', null)
         .not('quote_name', 'is', null)
         .not('results', 'is', null)
