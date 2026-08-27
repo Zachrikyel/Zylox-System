@@ -94,15 +94,15 @@ const SYSTEM_CONFIG = {
   PAINT_COST: 7500,    // redondeado (real: ~65% de un tarro de 60ml a 11.000 ≈ 7.150)
   FAN_COST: 500,        // toggle manual — ver logistics.fanToggle / config.fanToggle
   BRUSH_COST: 1500,     // pinceles — placeholder, pendiente ajuste
-  EXTRAS_FLAT_COST: 1000, // Imanes/Llaveros: ahora monto fijo (antes 2% del precio de venta)
+  EXTRAS_FLAT_COST: 2000, // Imanes/Llaveros: ahora monto fijo (antes 2% del precio de venta)
   OTHER_SUPPLIES_RATE: 0.05, // toggle "Otro/Varios": +5% sobre la suma de insumos activos
   EVA_COST: 15000,      // Goma EVA — placeholder, pendiente ajuste
   VINYL_COST: 7000,     // Vinilo Autoadhesivo — placeholder, pendiente ajuste
   PLIKE_COST: 25000,    // Papel Plike — placeholder, pendiente ajuste
   BUBBLE_COST: 1000,    // Papel Burbuja — placeholder, pendiente ajuste
-  GLUE_COST: 200,       // Colbón — placeholder, pendiente ajuste
-  SUPERGLUE_COST: 200,  // Superbonder (reparación de pieza) — placeholder, pendiente ajuste
-  VINIPEL_COST: 300,    // Vinipel — placeholder, pendiente ajuste
+  GLUE_COST: 500,       // Colbón — placeholder, pendiente ajuste
+  SUPERGLUE_COST: 500,  // Superbonder (reparación de pieza) — placeholder, pendiente ajuste
+  VINIPEL_COST: 500,    // Vinipel — placeholder, pendiente ajuste
   SUPPORTS_FRAGILITY_SOME_RATE: 0.05, // Fragilidad "Algunos": +5 puntos al margen de error — placeholder, pendiente ajuste
   SUPPORTS_FRAGILITY_ALL_RATE: 0.15,  // Fragilidad "Todos": +15 puntos al margen de error — placeholder, pendiente ajuste
   SUPPORTS_AMOUNT_FEW_RATE: 0.05,     // Cantidad "Pocos": +5% al costo de material — placeholder, pendiente ajuste

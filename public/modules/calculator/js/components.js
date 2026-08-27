@@ -314,17 +314,17 @@ function Calculator() {
     return `<div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-1.5">
-          ${isLabor ? Icons.Sparkles(14) : ''}<span class="text-xs font-semibold">${label}</span>
+          <span class="text-xs font-semibold">${label}</span>
         </div>
-        <button onclick="update${catUpper}('${prop}', '${isActive ? 'none' : 'max'}')" class="w-11 h-6 rounded-full transition relative shrink-0 ${isActive ? 'bg-cyan-500' : 'bg-zinc-700'}">
+        <button onclick="update${catUpper}('${prop}', '${isActive ? 'none' : 'max'}')" class="w-11 h-6 rounded-full transition relative shrink-0 ${isActive ? 'bg-purple-500' : 'bg-zinc-700'}">
           <div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${isActive ? 'translate-x-5' : ''}"></div>
         </button>
       </div>
       ${isActive ? `
       <div class="grid grid-cols-3 gap-1 mt-1 animate-fade-in">
-        <button onclick="update${catUpper}('${prop}', 'max')" class="py-1 rounded border text-[10px] font-semibold transition ${activeVal === 'max' ? 'border-cyan-500 bg-cyan-500/20 text-cyan-400' : 'border-zinc-700 text-zinc-500'}">Máx<br>+$${formatCurrency(maxCost)}</button>
-        <button onclick="update${catUpper}('${prop}', 'mid')" class="py-1 rounded border text-[10px] font-semibold transition ${activeVal === 'mid' ? 'border-cyan-500 bg-cyan-500/20 text-cyan-400' : 'border-zinc-700 text-zinc-500'}">Med<br>+$${formatCurrency(maxCost/2)}</button>
-        <button onclick="update${catUpper}('${prop}', 'min')" class="py-1 rounded border text-[10px] font-semibold transition ${activeVal === 'min' ? 'border-cyan-500 bg-cyan-500/20 text-cyan-400' : 'border-zinc-700 text-zinc-500'}">Mín<br>+$${formatCurrency(maxCost/4)}</button>
+        <button onclick="update${catUpper}('${prop}', 'max')" class="py-1 rounded border text-[10px] font-semibold transition ${activeVal === 'max' ? 'border-purple-500 bg-purple-500/20 text-purple-400' : 'border-zinc-700 text-zinc-500'}">$$$<br>$${formatCurrency(maxCost)}</button>
+        <button onclick="update${catUpper}('${prop}', 'mid')" class="py-1 rounded border text-[10px] font-semibold transition ${activeVal === 'mid' ? 'border-green-500 bg-green-500/20 text-green-400' : 'border-zinc-700 text-zinc-500'}">$$<br>$${formatCurrency(maxCost/2)}</button>
+        <button onclick="update${catUpper}('${prop}', 'min')" class="py-1 rounded border text-[10px] font-semibold transition ${activeVal === 'min' ? 'border-cyan-500 bg-cyan-500/20 text-cyan-400' : 'border-zinc-700 text-zinc-500'}">$<br>$${formatCurrency(maxCost/4)}</button>
       </div>
       ` : ''}
     </div>`;
@@ -529,7 +529,7 @@ function Calculator() {
                 <option value="">Selecciona...</option>
                 ${cachedFilament.items.map(m => `<option value="${m.id}" ${slot.materialId === m.id ? 'selected' : ''}>${m.display_name}${m.current_quantity <= 0 ? ' ⚠️' : ''}</option>`).join('')}
               </select>
-              <input type="text" inputmode="decimal" value="${slot.grams || ''}" oninput="window.calculatorState.print.colorSlots[${i}].grams = parseFloat(this.value) || 0" onblur="updateSlotGrams(${i}, this.value)" class="w-12 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-3 text-sm text-cyan-400 font-bold text-right focus:outline-none focus:border-cyan-500" placeholder="g" maxlength="7" />
+              <input type="text" inputmode="decimal" value="${slot.grams || ''}" oninput="window.calculatorState.print.colorSlots[${i}].grams = parseFloat(this.value) || 0" onblur="updateSlotGrams(${i}, this.value)" class="w-16 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-3 text-sm text-cyan-400 font-bold text-right focus:outline-none focus:border-cyan-500" placeholder="g" maxlength="7" />
               ${i > 0 ? `<button onclick="removeColorSlot(${i})" class="text-zinc-500 hover:text-red-400 px-2 text-lg">✕</button>` : `<div class="w-7"></div>`}
             </div>`).join('')}
           </div>
@@ -802,7 +802,7 @@ function Calculator() {
             ${renderTieredToggle('Laca', 'lacquerToggle', 'labor', SYSTEM_CONFIG.LACQUER_COST, true)}
             ${renderTieredToggle('Lija', 'sandingToggle', 'labor', SYSTEM_CONFIG.SANDING_COST, true)}
             ${renderTieredToggle('Pintura', 'paintToggle', 'labor', SYSTEM_CONFIG.PAINT_COST, true)}
-            ${renderTieredToggle('Imanes/Llaveros', 'additionalsToggle', 'logistics', SYSTEM_CONFIG.EXTRAS_FLAT_COST, true)}
+            ${renderTieredToggle('Llaveros', 'additionalsToggle', 'logistics', SYSTEM_CONFIG.EXTRAS_FLAT_COST, true)}
             ${renderTieredToggle('Superbonder', 'superglueToggle', 'labor', SYSTEM_CONFIG.SUPERGLUE_COST, true)}
             ${renderTieredToggle('Pinceles', 'brushToggle', 'labor', SYSTEM_CONFIG.BRUSH_COST, true)}
             <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2 border border-amber-500/30"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Otro/Varios</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-amber-400">+5%</span><button onclick="updateLabor('otherSuppliesToggle', ${!state.labor.otherSuppliesToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.otherSuppliesToggle ? 'bg-amber-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.otherSuppliesToggle ? 'translate-x-5' : ''}"></div></button></div></div>
