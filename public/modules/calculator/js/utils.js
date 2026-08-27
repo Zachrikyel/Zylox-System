@@ -153,14 +153,22 @@ function calculateQuote(params) {
   const step12Base = costMaterial + costEnergy + costWear;
   const failureRiskPremium = step12Base * effectiveFailureRisk;
 
+  // Helper para opciones de 3 niveles (Max, Mid, Min)
+  const getTieredCost = (val, maxCost) => {
+    if (val === true || val === 'max') return maxCost;
+    if (val === 'mid') return maxCost / 2;
+    if (val === 'min') return maxCost / 4;
+    return 0;
+  };
+
   let costSupplies = 0;
-  if (labor.primerToggle) costSupplies += SYSTEM_CONFIG.PRIMER_COST;
-  if (labor.lacquerToggle) costSupplies += SYSTEM_CONFIG.LACQUER_COST;
-  if (labor.sandingToggle) costSupplies += SYSTEM_CONFIG.SANDING_COST;
-  if (labor.paintToggle) costSupplies += SYSTEM_CONFIG.PAINT_COST;
-  if (logistics.additionalsToggle) costSupplies += SYSTEM_CONFIG.EXTRAS_FLAT_COST;
-  if (labor.brushToggle) costSupplies += SYSTEM_CONFIG.BRUSH_COST;
-  if (labor.superglueToggle) costSupplies += SYSTEM_CONFIG.SUPERGLUE_COST;
+  costSupplies += getTieredCost(labor.primerToggle, SYSTEM_CONFIG.PRIMER_COST);
+  costSupplies += getTieredCost(labor.lacquerToggle, SYSTEM_CONFIG.LACQUER_COST);
+  costSupplies += getTieredCost(labor.sandingToggle, SYSTEM_CONFIG.SANDING_COST);
+  costSupplies += getTieredCost(labor.paintToggle, SYSTEM_CONFIG.PAINT_COST);
+  costSupplies += getTieredCost(logistics.additionalsToggle, SYSTEM_CONFIG.EXTRAS_FLAT_COST);
+  costSupplies += getTieredCost(labor.brushToggle, SYSTEM_CONFIG.BRUSH_COST);
+  costSupplies += getTieredCost(labor.superglueToggle, SYSTEM_CONFIG.SUPERGLUE_COST);
   const suppliesBeforeOtherRate = costSupplies;
   if (labor.otherSuppliesToggle) costSupplies *= (1 + SYSTEM_CONFIG.OTHER_SUPPLIES_RATE);
   const otherSuppliesExtra = costSupplies - suppliesBeforeOtherRate; // el peso real que agrega el +5%
@@ -186,12 +194,12 @@ function calculateQuote(params) {
   // personalizado si elegiste esa opción) — no se vuelve a buscar aquí.
   let packagingCost = logistics.packagingCost || 0;
   let packagingExtras = 0;
-  if (logistics.evaToggle) packagingExtras += SYSTEM_CONFIG.EVA_COST;
-  if (logistics.vinylToggle) packagingExtras += SYSTEM_CONFIG.VINYL_COST;
-  if (logistics.plikeToggle) packagingExtras += SYSTEM_CONFIG.PLIKE_COST;
-  if (logistics.bubbleToggle) packagingExtras += SYSTEM_CONFIG.BUBBLE_COST;
-  if (logistics.glueToggle) packagingExtras += SYSTEM_CONFIG.GLUE_COST;
-  if (logistics.vinipelToggle) packagingExtras += SYSTEM_CONFIG.VINIPEL_COST;
+  packagingExtras += getTieredCost(logistics.evaToggle, SYSTEM_CONFIG.EVA_COST);
+  packagingExtras += getTieredCost(logistics.vinylToggle, SYSTEM_CONFIG.VINYL_COST);
+  packagingExtras += getTieredCost(logistics.plikeToggle, SYSTEM_CONFIG.PLIKE_COST);
+  packagingExtras += getTieredCost(logistics.bubbleToggle, SYSTEM_CONFIG.BUBBLE_COST);
+  packagingExtras += getTieredCost(logistics.glueToggle, SYSTEM_CONFIG.GLUE_COST);
+  packagingExtras += getTieredCost(logistics.vinipelToggle, SYSTEM_CONFIG.VINIPEL_COST);
   packagingCost += packagingExtras;
   const reposicionOtros = packagingCost; // envío queda aparte, es pass-through (ver logisticsCosts)
   const logisticsCosts = shippingCost + packagingCost;

@@ -289,7 +289,7 @@ window.loadDashboardStats = async () => {
 function Calculator() {
   const Icons = getIcons();
   const { formatCurrency, parseDecimalHours, parseTimeInput } = window.Formatters;
-  const { PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, PACKAGING_ROOTS, FILAMENT_ROOTS, COMPLEXITY_LEVELS, GATEWAYS } = window.SICMA_CONSTANTS;
+  const { PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, PACKAGING_ROOTS, FILAMENT_ROOTS, COMPLEXITY_LEVELS, GATEWAYS, SYSTEM_CONFIG } = window.SICMA_CONSTANTS;
 
   // ESTADO INICIAL ORIGINAL
   if (!window.calculatorState) {
@@ -304,6 +304,31 @@ function Calculator() {
     };
   }
   const state = window.calculatorState;
+
+  const renderTieredToggle = (label, prop, category, maxCost, isLabor = false) => {
+    const val = state[category][prop];
+    const isActive = val !== false && val !== 'none';
+    const activeVal = val === true ? 'max' : val;
+    const catUpper = category.charAt(0).toUpperCase() + category.slice(1);
+    
+    return `<div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-1.5">
+          ${isLabor ? Icons.Sparkles(14) : ''}<span class="text-xs font-semibold">${label}</span>
+        </div>
+        <button onclick="update${catUpper}('${prop}', '${isActive ? 'none' : 'max'}')" class="w-11 h-6 rounded-full transition relative shrink-0 ${isActive ? 'bg-cyan-500' : 'bg-zinc-700'}">
+          <div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${isActive ? 'translate-x-5' : ''}"></div>
+        </button>
+      </div>
+      ${isActive ? `
+      <div class="grid grid-cols-3 gap-1 mt-1 animate-fade-in">
+        <button onclick="update${catUpper}('${prop}', 'max')" class="py-1 rounded border text-[10px] font-semibold transition ${activeVal === 'max' ? 'border-cyan-500 bg-cyan-500/20 text-cyan-400' : 'border-zinc-700 text-zinc-500'}">Máx<br>+$${formatCurrency(maxCost)}</button>
+        <button onclick="update${catUpper}('${prop}', 'mid')" class="py-1 rounded border text-[10px] font-semibold transition ${activeVal === 'mid' ? 'border-cyan-500 bg-cyan-500/20 text-cyan-400' : 'border-zinc-700 text-zinc-500'}">Med<br>+$${formatCurrency(maxCost/2)}</button>
+        <button onclick="update${catUpper}('${prop}', 'min')" class="py-1 rounded border text-[10px] font-semibold transition ${activeVal === 'min' ? 'border-cyan-500 bg-cyan-500/20 text-cyan-400' : 'border-zinc-700 text-zinc-500'}">Mín<br>+$${formatCurrency(maxCost/4)}</button>
+      </div>
+      ` : ''}
+    </div>`;
+  };
 
   // HELPERS ORIGINALES
   window.updateConfig = (key, value) => { state.config[key] = value; if (key === 'material') { const m = MATERIALS.find(x => x.id === value); state.print.coolMinutes = m.coolMinutes; } renderCalculatorWithScroll(); };
@@ -504,7 +529,7 @@ function Calculator() {
                 <option value="">Selecciona...</option>
                 ${cachedFilament.items.map(m => `<option value="${m.id}" ${slot.materialId === m.id ? 'selected' : ''}>${m.display_name}${m.current_quantity <= 0 ? ' ⚠️' : ''}</option>`).join('')}
               </select>
-              <input type="text" inputmode="decimal" value="${slot.grams || ''}" oninput="window.calculatorState.print.colorSlots[${i}].grams = parseFloat(this.value) || 0" onblur="updateSlotGrams(${i}, this.value)" class="w-16 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-3 text-sm text-cyan-400 font-bold text-right focus:outline-none focus:border-cyan-500" placeholder="g" />
+              <input type="text" inputmode="decimal" value="${slot.grams || ''}" oninput="window.calculatorState.print.colorSlots[${i}].grams = parseFloat(this.value) || 0" onblur="updateSlotGrams(${i}, this.value)" class="w-12 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-3 text-sm text-cyan-400 font-bold text-right focus:outline-none focus:border-cyan-500" placeholder="g" maxlength="7" />
               ${i > 0 ? `<button onclick="removeColorSlot(${i})" class="text-zinc-500 hover:text-red-400 px-2 text-lg">✕</button>` : `<div class="w-7"></div>`}
             </div>`).join('')}
           </div>
@@ -656,11 +681,11 @@ function Calculator() {
       state.labor.complexity = preset.complexity;
       state.labor.primerToggle = preset.primerToggle;
       state.labor.lacquerToggle = preset.lacquerToggle;
-      state.labor.sandingToggle = !!preset.sandingToggle;
-      state.labor.paintToggle = !!preset.paintToggle;
-      state.labor.brushToggle = !!preset.brushToggle;
+      state.labor.sandingToggle = preset.sandingToggle;
+      state.labor.paintToggle = preset.paintToggle;
+      state.labor.brushToggle = preset.brushToggle;
       state.labor.otherSuppliesToggle = !!preset.otherSuppliesToggle;
-      state.labor.superglueToggle = !!preset.superglueToggle;
+      state.labor.superglueToggle = preset.superglueToggle;
       // Margen según complejidad
       const margins = { simple: 25, easy: 30, medium: 35, hard: 40 };
       if (margins[preset.complexity]) state.pricing.profitMargin = margins[preset.complexity];
@@ -671,12 +696,12 @@ function Calculator() {
       state.logistics.packagingCustom = preset.packagingCustom;
       state.logistics.additionalsToggle = preset.additionalsToggle;
       state.logistics.isFreeShipping = preset.isFreeShipping;
-      state.logistics.evaToggle = !!preset.evaToggle;
-      state.logistics.vinylToggle = !!preset.vinylToggle;
-      state.logistics.plikeToggle = !!preset.plikeToggle;
-      state.logistics.bubbleToggle = !!preset.bubbleToggle;
-      state.logistics.glueToggle = !!preset.glueToggle;
-      state.logistics.vinipelToggle = !!preset.vinipelToggle;
+      state.logistics.evaToggle = preset.evaToggle;
+      state.logistics.vinylToggle = preset.vinylToggle;
+      state.logistics.plikeToggle = preset.plikeToggle;
+      state.logistics.bubbleToggle = preset.bubbleToggle;
+      state.logistics.glueToggle = preset.glueToggle;
+      state.logistics.vinipelToggle = preset.vinipelToggle;
 
       // Auto-seleccionar el material de empaque por nombre
       state.logistics.packagingMaterialId = null;
@@ -773,13 +798,13 @@ function Calculator() {
         <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
           <h3 class="text-sm font-bold text-white mb-3">Insumos</h3>
           <div class="grid grid-cols-2 gap-3">
-            <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Primer</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$7.000</span><button onclick="updateLabor('primerToggle', ${!state.labor.primerToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.primerToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.primerToggle ? 'translate-x-5' : ''}"></div></button></div></div>
-            <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Laca</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$6.000</span><button onclick="updateLabor('lacquerToggle', ${!state.labor.lacquerToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.lacquerToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.lacquerToggle ? 'translate-x-5' : ''}"></div></button></div></div>
-            <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Lija</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$1.000</span><button onclick="updateLabor('sandingToggle', ${!state.labor.sandingToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.sandingToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.sandingToggle ? 'translate-x-5' : ''}"></div></button></div></div>
-            <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Pintura</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$7.500</span><button onclick="updateLabor('paintToggle', ${!state.labor.paintToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.paintToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.paintToggle ? 'translate-x-5' : ''}"></div></button></div></div>
-            <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Imanes/Llaveros</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$1.000</span><button onclick="updateLogistics('additionalsToggle', ${!state.logistics.additionalsToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.logistics.additionalsToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.logistics.additionalsToggle ? 'translate-x-5' : ''}"></div></button></div></div>
-            <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Superbonder</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$200</span><button onclick="updateLabor('superglueToggle', ${!state.labor.superglueToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.superglueToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.superglueToggle ? 'translate-x-5' : ''}"></div></button></div></div>
-            <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Pinceles</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$1.500</span><button onclick="updateLabor('brushToggle', ${!state.labor.brushToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.brushToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.brushToggle ? 'translate-x-5' : ''}"></div></button></div></div>
+            ${renderTieredToggle('Primer', 'primerToggle', 'labor', SYSTEM_CONFIG.PRIMER_COST, true)}
+            ${renderTieredToggle('Laca', 'lacquerToggle', 'labor', SYSTEM_CONFIG.LACQUER_COST, true)}
+            ${renderTieredToggle('Lija', 'sandingToggle', 'labor', SYSTEM_CONFIG.SANDING_COST, true)}
+            ${renderTieredToggle('Pintura', 'paintToggle', 'labor', SYSTEM_CONFIG.PAINT_COST, true)}
+            ${renderTieredToggle('Imanes/Llaveros', 'additionalsToggle', 'logistics', SYSTEM_CONFIG.EXTRAS_FLAT_COST, true)}
+            ${renderTieredToggle('Superbonder', 'superglueToggle', 'labor', SYSTEM_CONFIG.SUPERGLUE_COST, true)}
+            ${renderTieredToggle('Pinceles', 'brushToggle', 'labor', SYSTEM_CONFIG.BRUSH_COST, true)}
             <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2 border border-amber-500/30"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Otro/Varios</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-amber-400">+5%</span><button onclick="updateLabor('otherSuppliesToggle', ${!state.labor.otherSuppliesToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.otherSuppliesToggle ? 'bg-amber-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.otherSuppliesToggle ? 'translate-x-5' : ''}"></div></button></div></div>
           </div>
           <p class="text-xs text-zinc-500 mt-3">💡 Activa solo los que aplican. "Otro/Varios" suma 5% sobre el total de insumos activos (imprevistos, repetición de una capa, etc).</p>
@@ -818,12 +843,12 @@ function Calculator() {
           <div class="pt-4 mt-1 border-t border-zinc-800">
             <h3 class="text-sm font-bold text-white mb-3">Materiales de Embalaje</h3>
             <div class="grid grid-cols-2 gap-3">
-              <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><span class="text-xs font-semibold">Goma EVA</span><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$15.000</span><button onclick="updateLogistics('evaToggle', ${!state.logistics.evaToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.logistics.evaToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.logistics.evaToggle ? 'translate-x-5' : ''}"></div></button></div></div>
-              <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><span class="text-xs font-semibold">Vinilo Autoadhesivo</span><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$7.000</span><button onclick="updateLogistics('vinylToggle', ${!state.logistics.vinylToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.logistics.vinylToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.logistics.vinylToggle ? 'translate-x-5' : ''}"></div></button></div></div>
-              <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><span class="text-xs font-semibold">Papel Plike</span><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$25.000</span><button onclick="updateLogistics('plikeToggle', ${!state.logistics.plikeToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.logistics.plikeToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.logistics.plikeToggle ? 'translate-x-5' : ''}"></div></button></div></div>
-              <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><span class="text-xs font-semibold">Papel Burbuja</span><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$1.000</span><button onclick="updateLogistics('bubbleToggle', ${!state.logistics.bubbleToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.logistics.bubbleToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.logistics.bubbleToggle ? 'translate-x-5' : ''}"></div></button></div></div>
-              <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><span class="text-xs font-semibold">Colbón</span><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$200</span><button onclick="updateLogistics('glueToggle', ${!state.logistics.glueToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.logistics.glueToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.logistics.glueToggle ? 'translate-x-5' : ''}"></div></button></div></div>
-              <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2"><span class="text-xs font-semibold">Vinipel</span><div class="flex items-center justify-between"><span class="text-[11px] text-zinc-500">+$300</span><button onclick="updateLogistics('vinipelToggle', ${!state.logistics.vinipelToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.logistics.vinipelToggle ? 'bg-cyan-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.logistics.vinipelToggle ? 'translate-x-5' : ''}"></div></button></div></div>
+              ${renderTieredToggle('Goma EVA', 'evaToggle', 'logistics', SYSTEM_CONFIG.EVA_COST, false)}
+              ${renderTieredToggle('Vinilo Autoadhesivo', 'vinylToggle', 'logistics', SYSTEM_CONFIG.VINYL_COST, false)}
+              ${renderTieredToggle('Papel Plike', 'plikeToggle', 'logistics', SYSTEM_CONFIG.PLIKE_COST, false)}
+              ${renderTieredToggle('Papel Burbuja', 'bubbleToggle', 'logistics', SYSTEM_CONFIG.BUBBLE_COST, false)}
+              ${renderTieredToggle('Colbón', 'glueToggle', 'logistics', SYSTEM_CONFIG.GLUE_COST, false)}
+              ${renderTieredToggle('Vinipel', 'vinipelToggle', 'logistics', SYSTEM_CONFIG.VINIPEL_COST, false)}
             </div>
             <p class="text-xs text-zinc-500 mt-3">💡 Montos temporales, pendientes de ajuste</p>
           </div>
