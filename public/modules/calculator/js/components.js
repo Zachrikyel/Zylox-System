@@ -374,7 +374,7 @@ function Calculator() {
   };
 
   // --- Imanes del inventario (paso 3, Insumos) ---
-  // Mismo patrón que los colores de filamento: lee las hojas de Funcional > IMAN (Circular=63 y Rectangular=64)
+  // Mismo patrón que los colores de filamento: lee las hojas de Funcional > Imanes (Circular=79 y Rectangular=80)
   // vía get_leaf_materials y las junta en un solo select agrupado.
   const MAGNET_GROUPS = [{ key: 'circular', label: 'Circulares' }, { key: 'rectangular', label: 'Rectangulares' }];
   const getMagnetOptions = () => {
