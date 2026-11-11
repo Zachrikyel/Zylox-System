@@ -171,7 +171,10 @@ function calculateQuote(params) {
   costSupplies += getTieredCost(labor.superglueToggle, SYSTEM_CONFIG.SUPERGLUE_COST);
   const suppliesBeforeOtherRate = costSupplies;
   if (labor.otherSuppliesToggle) costSupplies *= (1 + SYSTEM_CONFIG.OTHER_SUPPLIES_RATE);
-  const otherSuppliesExtra = costSupplies - suppliesBeforeOtherRate; // el peso real que agrega el +5%
+  const otherSuppliesExtra = costSupplies - suppliesBeforeOtherRate; // el peso real que agrega el +10%
+  // Imanes del inventario: cantidad × precio unitario de cada línea (no lleva el % de Otro/Varios, es costo exacto)
+  const magnetsInventoryCost = (labor.magnets || []).reduce((sum, m) => sum + (Number(m.qty) || 0) * (Number(m.unitCost) || 0), 0);
+  costSupplies += magnetsInventoryCost;
   const materiaPrima = costMaterial + costSupplies;
 
   // Mano de obra (tiempo real de post-proceso/operador) — va a Costos Operativos, es tu pago por hora, no reposición.
@@ -194,9 +197,7 @@ function calculateQuote(params) {
   // personalizado si elegiste esa opción) — no se vuelve a buscar aquí.
   let packagingCost = logistics.packagingCost || 0;
   let packagingExtras = 0;
-  packagingExtras += getTieredCost(logistics.evaToggle, SYSTEM_CONFIG.EVA_COST);
-  packagingExtras += getTieredCost(logistics.vinylToggle, SYSTEM_CONFIG.VINYL_COST);
-  packagingExtras += getTieredCost(logistics.plikeToggle, SYSTEM_CONFIG.PLIKE_COST);
+  packagingExtras += getTieredCost(logistics.otherPackagingToggle, SYSTEM_CONFIG.OTHER_PACKAGING_COST);
   packagingExtras += getTieredCost(logistics.bubbleToggle, SYSTEM_CONFIG.BUBBLE_COST);
   packagingExtras += getTieredCost(logistics.glueToggle, SYSTEM_CONFIG.GLUE_COST);
   packagingExtras += getTieredCost(logistics.vinipelToggle, SYSTEM_CONFIG.VINIPEL_COST);
@@ -291,6 +292,7 @@ function calculateQuote(params) {
         magnets: getTieredCost(logistics.additionalsToggle, SYSTEM_CONFIG.EXTRAS_FLAT_COST),
         brush: getTieredCost(labor.brushToggle, SYSTEM_CONFIG.BRUSH_COST),
         superglue: getTieredCost(labor.superglueToggle, SYSTEM_CONFIG.SUPERGLUE_COST),
+        magnetsInventory: magnetsInventoryCost,
         otherRate: labor.otherSuppliesToggle ? otherSuppliesExtra : 0
       },
       labor: costLabor,
@@ -594,6 +596,33 @@ async function loadMaterialOptions(rootId) {
     console.error('❌ Error cargando opciones desde inventario:', e);
     window.calculatorState._materialOptions[rootId] = { error: true, items: [] };
   }
+  if (window.renderModule) window.renderModule();
+}
+
+// Resuelve los IDs de Funcional > IMAN > Circular/Rectangular buscando por nombre en materials,
+// para no depender de IDs fijos. Si MAGNET_ROOTS ya trae IDs en config.js, esos tienen prioridad.
+async function resolveMagnetRoots() {
+  const state = window.calculatorState;
+  const fixed = window.SICMA_CONSTANTS.MAGNET_ROOTS || {};
+  const norm = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const result = { circular: fixed.circular || null, rectangular: fixed.rectangular || null };
+  try {
+    if (!result.circular || !result.rectangular) {
+      const supabase = getSupabase();
+      const { data, error } = await supabase.from('materials').select('id, name, parent_id');
+      if (error) throw error;
+      const iman = (data || []).find(m => norm(m.name) === 'iman' || norm(m.name) === 'imanes');
+      if (iman) {
+        const kids = data.filter(m => m.parent_id === iman.id);
+        const find = (word) => (kids.find(k => norm(k.name).includes(word)) || {}).id || null;
+        result.circular = result.circular || find('circular');
+        result.rectangular = result.rectangular || find('rectangular');
+      }
+    }
+  } catch (e) {
+    console.error('❌ No pude resolver las categorías de imanes:', e);
+  }
+  state._magnetRoots = result;
   if (window.renderModule) window.renderModule();
 }
 
@@ -963,6 +992,7 @@ window.Storage = {
   getProducts,
   saveQuote,
   generateVariantsForQuote,
+  resolveMagnetRoots,
   getQuotes,
   getQuoteById,
   searchQuotes,

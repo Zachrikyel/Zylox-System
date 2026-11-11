@@ -289,7 +289,7 @@ window.loadDashboardStats = async () => {
 function Calculator() {
   const Icons = getIcons();
   const { formatCurrency, parseDecimalHours, parseTimeInput } = window.Formatters;
-  const { PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, PACKAGING_ROOTS, FILAMENT_ROOTS, COMPLEXITY_LEVELS, GATEWAYS, SYSTEM_CONFIG } = window.SICMA_CONSTANTS;
+  const { PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, PACKAGING_ROOTS, FILAMENT_ROOTS, MAGNET_ROOTS, COMPLEXITY_LEVELS, GATEWAYS, SYSTEM_CONFIG } = window.SICMA_CONSTANTS;
 
   // ESTADO INICIAL ORIGINAL
   if (!window.calculatorState) {
@@ -297,8 +297,8 @@ function Calculator() {
       step: 1,
       config: { kwhPrice: 920, printer: 'p1s', nozzle: 0.4, material: 'pla', materialCostPerKg: 75000, amsMode: false, fanToggle: false },
       print: { printHours: 0, materialCost: 0, coolMinutes: 18, isPiece: 'single', plateCount: 1, supportsNeeded: false, supportsFragility: 'none', supportsAmount: 'none', colorSlots: [{ materialId: null, grams: 0 }] },
-      labor: { complexity: 'simple', primerToggle: false, lacquerToggle: false, sandingToggle: false, paintToggle: false, brushToggle: false, otherSuppliesToggle: false, superglueToggle: false },
-      logistics: { shipping: 'pickup', packagingType: 'box', packagingSize: 'small', packagingCustom: 0, packagingMaterialId: null, packagingCost: 0, packagingIsCustom: false, shippingCustom: 0, additionalsToggle: false, isFreeShipping: false, evaToggle: false, vinylToggle: false, plikeToggle: false, bubbleToggle: false, glueToggle: false, vinipelToggle: false },
+      labor: { complexity: 'simple', primerToggle: false, lacquerToggle: false, sandingToggle: false, paintToggle: false, brushToggle: false, otherSuppliesToggle: false, superglueToggle: false, magnets: [] },
+      logistics: { shipping: 'pickup', packagingType: 'box', packagingSize: 'small', packagingCustom: 0, packagingMaterialId: null, packagingCost: 0, packagingIsCustom: false, shippingCustom: 0, additionalsToggle: false, isFreeShipping: false, otherPackagingToggle: false, bubbleToggle: false, glueToggle: false, vinipelToggle: false },
       pricing: { gateway: 'wompi', profitMargin: 25, additionalCharge: 0 },
       results: null
     };
@@ -368,8 +368,47 @@ function Calculator() {
   };
 
   window.addColorSlot = () => {
-    if (state.print.colorSlots.length >= 4) return;
+    if (state.print.colorSlots.length >= 20) return;
     state.print.colorSlots.push({ materialId: null, grams: 0 });
+    renderCalculatorWithScroll();
+  };
+
+  // --- Imanes del inventario (paso 3, Insumos) ---
+  // Mismo patrón que los colores de filamento: lee las hojas de Funcional > IMAN (Circular y Rectangular)
+  // vía get_leaf_materials y las junta en un solo select agrupado.
+  const MAGNET_GROUPS = [{ key: 'circular', label: 'Circulares' }, { key: 'rectangular', label: 'Rectangulares' }];
+  const getMagnetOptions = () => {
+    if (!state._magnetRoots) {
+      if (!state._magnetRootsLoading) { state._magnetRootsLoading = true; resolveMagnetRoots(); }
+      return { loading: true, groups: [] };
+    }
+    let loading = false, error = false;
+    const groups = MAGNET_GROUPS.map(g => {
+      const rootId = state._magnetRoots[g.key];
+      if (!rootId) { error = true; return { ...g, items: [] }; }
+      const cached = state._materialOptions && state._materialOptions[rootId];
+      if (!cached) { loading = true; loadMaterialOptions(rootId); return { ...g, items: [] }; }
+      if (cached.error) error = true;
+      return { ...g, items: cached.items || [] };
+    });
+    return { loading, error, groups };
+  };
+  window.addMagnetLine = () => {
+    state.labor.magnets = state.labor.magnets || [];
+    state.labor.magnets.push({ materialId: null, unitCost: 0, qty: 1 });
+    renderCalculatorWithScroll();
+  };
+  window.removeMagnetLine = (i) => { state.labor.magnets.splice(i, 1); renderCalculatorWithScroll(); };
+  window.selectMagnet = (i, value) => {
+    const line = state.labor.magnets[i];
+    const all = getMagnetOptions().groups.flatMap(g => g.items);
+    const item = all.find(m => String(m.id) === String(value));
+    line.materialId = item ? item.id : null;
+    line.unitCost = item ? (Number(item.cost_per_unit) || 0) : 0;
+    renderCalculatorWithScroll();
+  };
+  window.updateMagnetQty = (i, value) => {
+    state.labor.magnets[i].qty = Math.max(0, parseInt(value, 10) || 0);
     renderCalculatorWithScroll();
   };
 
@@ -533,7 +572,7 @@ function Calculator() {
               ${i > 0 ? `<button onclick="removeColorSlot(${i})" class="text-zinc-500 hover:text-red-400 px-2 text-lg">✕</button>` : `<div class="w-7"></div>`}
             </div>`).join('')}
           </div>
-          ${state.print.colorSlots.length < 4 ? `<button onclick="addColorSlot()" class="mt-3 text-sm text-cyan-400 font-semibold">+ Agregar Color</button>` : ''}
+          ${state.print.colorSlots.length < 20 ? `<button onclick="addColorSlot()" class="mt-3 text-sm text-cyan-400 font-semibold">+ Agregar Color</button>` : ''}
           <div class="mt-4 pt-4 border-t border-zinc-800 space-y-1">
             ${state.print.colorSlots.filter(s => s.materialId && s.grams > 0).map(s => { const item = cachedFilament.items.find(m => m.id === s.materialId); return `<div class="flex justify-between text-xs"><span class="text-zinc-500">${item ? item.display_name : '?'}</span><span class="text-zinc-300 font-mono">${s.grams}g</span></div>`; }).join('')}
             <div class="flex justify-between text-sm pt-1"><span class="text-white font-bold">Coste Total</span><span class="text-cyan-400 font-mono font-bold">${state.print.colorSlots.reduce((a, s) => a + (Number(s.grams) || 0), 0).toFixed(2)}g · ${formatCurrency(state.print.materialCost)}</span></div>
@@ -592,9 +631,7 @@ function Calculator() {
         packagingType: 'box',
         packagingSize: 'large',
         packagingCustom: 0,
-        evaToggle: false,
-        vinylToggle: false,
-        plikeToggle: false,
+        otherPackagingToggle: false,
         bubbleToggle: true,
         glueToggle: true,
         vinipelToggle: true,
@@ -622,9 +659,7 @@ function Calculator() {
         packagingType: 'box',
         packagingSize: 'medium',
         packagingCustom: 0,
-        evaToggle: true,
-        vinylToggle: true,
-        plikeToggle: false,
+        otherPackagingToggle: true,
         bubbleToggle: true,
         glueToggle: true,
         vinipelToggle: true,
@@ -652,9 +687,7 @@ function Calculator() {
         packagingType: 'bag',
         packagingSize: 'tela',
         packagingCustom: 0,
-        evaToggle: false,
-        vinylToggle: false,
-        plikeToggle: false,
+        otherPackagingToggle: false,
         bubbleToggle: false,
         glueToggle: false,
         vinipelToggle: false,
@@ -696,9 +729,7 @@ function Calculator() {
       state.logistics.packagingCustom = preset.packagingCustom;
       state.logistics.additionalsToggle = preset.additionalsToggle;
       state.logistics.isFreeShipping = preset.isFreeShipping;
-      state.logistics.evaToggle = preset.evaToggle;
-      state.logistics.vinylToggle = preset.vinylToggle;
-      state.logistics.plikeToggle = preset.plikeToggle;
+      state.logistics.otherPackagingToggle = !!preset.otherPackagingToggle;
       state.logistics.bubbleToggle = preset.bubbleToggle;
       state.logistics.glueToggle = preset.glueToggle;
       state.logistics.vinipelToggle = preset.vinipelToggle;
@@ -775,7 +806,7 @@ function Calculator() {
                 <div>• Insumos: <span class="text-white font-semibold">${[preset.primerToggle && 'Primer', preset.lacquerToggle && 'Laca', preset.sandingToggle && 'Lija', preset.paintToggle && 'Pintura', preset.brushToggle && 'Pinceles', preset.superglueToggle && 'Superbonder', preset.additionalsToggle && 'Imanes', preset.otherSuppliesToggle && 'Otros'].filter(Boolean).join(', ') || 'Ninguno'}</span></div>
                 <div>• Envío: <span class="text-white font-semibold">${preset.shipping === 'pickup' ? 'Recogida' : preset.shipping === 'local' ? 'Local' : 'Nacional'}</span></div>
                 <div>• Empaque: <span class="text-white font-semibold">${preset.packagingType === 'box' ? '📦 Caja' : '🎒 Bolsa'}${preset._packagingLabel ? ' - ' + preset._packagingLabel : ''}</span></div>
-                <div>• Embalaje: <span class="text-white font-semibold">${[preset.evaToggle && 'EVA', preset.vinylToggle && 'Vinilo', preset.bubbleToggle && 'Burbuja', preset.glueToggle && 'Colbón', preset.vinipelToggle && 'Vinipel'].filter(Boolean).join(', ') || 'Ninguno'}</span></div>
+                <div>• Embalaje: <span class="text-white font-semibold">${[preset.otherPackagingToggle && 'Otro/Varios', preset.bubbleToggle && 'Burbuja', preset.glueToggle && 'Colbón', preset.vinipelToggle && 'Vinipel'].filter(Boolean).join(', ') || 'Ninguno'}</span></div>
                 <div>• Envío Gratis: <span class="${preset.isFreeShipping ? 'text-green-400' : 'text-zinc-600'}">${preset.isFreeShipping ? 'Sí' : 'No'}</span></div>
               </div>
             </button>`;
@@ -805,9 +836,37 @@ function Calculator() {
             ${renderTieredToggle('Llaveros', 'additionalsToggle', 'logistics', SYSTEM_CONFIG.EXTRAS_FLAT_COST, true)}
             ${renderTieredToggle('Superbonder', 'superglueToggle', 'labor', SYSTEM_CONFIG.SUPERGLUE_COST, true)}
             ${renderTieredToggle('Pinceles', 'brushToggle', 'labor', SYSTEM_CONFIG.BRUSH_COST, true)}
-            <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2 border border-amber-500/30"><div class="flex items-center gap-1.5">${Icons.Sparkles(14)}<span class="text-xs font-semibold">Otro/Varios</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-amber-400">+5%</span><button onclick="updateLabor('otherSuppliesToggle', ${!state.labor.otherSuppliesToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.otherSuppliesToggle ? 'bg-amber-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.otherSuppliesToggle ? 'translate-x-5' : ''}"></div></button></div></div>
+            <div class="p-3 bg-zinc-800 rounded-lg flex flex-col gap-2 border border-amber-500/30"><div class="flex items-center gap-1.5"><span class="text-xs font-semibold">Otro/Varios</span></div><div class="flex items-center justify-between"><span class="text-[11px] text-amber-400">+10%</span><button onclick="updateLabor('otherSuppliesToggle', ${!state.labor.otherSuppliesToggle})" class="w-11 h-6 rounded-full transition relative shrink-0 ${state.labor.otherSuppliesToggle ? 'bg-amber-500' : 'bg-zinc-700'}"><div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${state.labor.otherSuppliesToggle ? 'translate-x-5' : ''}"></div></button></div></div>
           </div>
-          <p class="text-xs text-zinc-500 mt-3">💡 Activa solo los que aplican. "Otro/Varios" suma 5% sobre el total de insumos activos (imprevistos, repetición de una capa, etc).</p>
+          <div class="pt-4 mt-4 border-t border-zinc-800">
+            <h3 class="text-sm font-bold text-white mb-3">Imanes</h3>
+            ${(() => {
+              const mo = getMagnetOptions();
+              const lines = state.labor.magnets || [];
+              const total = lines.reduce((a, m) => a + (Number(m.qty) || 0) * (Number(m.unitCost) || 0), 0);
+              const allItems = mo.groups.flatMap(g => g.items);
+              if (mo.loading) return `<div class="p-4 bg-zinc-800 rounded-lg text-sm text-zinc-500 flex items-center gap-2">⏳ Cargando imanes de tu inventario...</div>`;
+              if (mo.error && allItems.length === 0) return `<div class="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">⚠️ No pude conectar con tu inventario de imanes.</div>`;
+              if (allItems.length === 0) return `<div class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm text-amber-400">⚠️ Todavía no tienes imanes cargados en tu inventario.</div>`;
+              return `<div class="space-y-3">
+                ${lines.map((m, i) => `
+                <div class="flex gap-2 items-center">
+                  <select onchange="selectMagnet(${i}, this.value)" class="flex-1 min-w-0 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-cyan-500">
+                    <option value="">Selecciona...</option>
+                    ${mo.groups.filter(g => g.items.length).map(g => `<optgroup label="${g.label}">${g.items.map(it => `<option value="${it.id}" ${m.materialId === it.id ? 'selected' : ''}>${it.display_name} - ${formatCurrency(it.cost_per_unit)}${it.current_quantity <= 0 ? ' ⚠️' : ''}</option>`).join('')}</optgroup>`).join('')}
+                  </select>
+                  <input type="text" inputmode="numeric" value="${m.qty || ''}" onchange="updateMagnetQty(${i}, this.value)" class="w-16 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-3 text-sm text-cyan-400 font-bold text-right focus:outline-none focus:border-cyan-500" placeholder="u" maxlength="4" />
+                  <button onclick="removeMagnetLine(${i})" class="text-zinc-500 hover:text-red-400 px-2 text-lg">✕</button>
+                </div>`).join('')}
+              </div>
+              <button onclick="addMagnetLine()" class="mt-3 text-sm text-cyan-400 font-semibold">+ Agregar Imán</button>
+              ${lines.some(m => m.materialId && m.qty > 0) ? `<div class="mt-4 pt-4 border-t border-zinc-800 space-y-1">
+                ${lines.filter(m => m.materialId && m.qty > 0).map(m => { const it = allItems.find(x => x.id === m.materialId); return `<div class="flex justify-between text-xs"><span class="text-zinc-500">${m.qty} × ${it ? it.display_name : '?'}</span><span class="text-zinc-300 font-mono">${formatCurrency(m.qty * m.unitCost)}</span></div>`; }).join('')}
+                <div class="flex justify-between text-sm pt-1"><span class="text-white font-bold">Total Imanes</span><span class="text-cyan-400 font-mono font-bold">${formatCurrency(total)}</span></div>
+              </div>` : ''}`;
+            })()}
+          </div>
+          <p class="text-xs text-zinc-500 mt-3">💡 Activa solo los que aplican. "Otro/Varios" suma 10% sobre el total de insumos activos (imprevistos, repetición de una capa, etc).</p>
         </div>
         `}
       </div>
@@ -843,12 +902,10 @@ function Calculator() {
           <div class="pt-4 mt-1 border-t border-zinc-800">
             <h3 class="text-sm font-bold text-white mb-3">Materiales de Embalaje</h3>
             <div class="grid grid-cols-2 gap-3">
-              ${renderTieredToggle('Goma EVA', 'evaToggle', 'logistics', SYSTEM_CONFIG.EVA_COST, false)}
-              ${renderTieredToggle('Vinilo Autoadhesivo', 'vinylToggle', 'logistics', SYSTEM_CONFIG.VINYL_COST, false)}
-              ${renderTieredToggle('Papel Plike', 'plikeToggle', 'logistics', SYSTEM_CONFIG.PLIKE_COST, false)}
               ${renderTieredToggle('Papel Burbuja', 'bubbleToggle', 'logistics', SYSTEM_CONFIG.BUBBLE_COST, false)}
               ${renderTieredToggle('Colbón', 'glueToggle', 'logistics', SYSTEM_CONFIG.GLUE_COST, false)}
               ${renderTieredToggle('Vinipel', 'vinipelToggle', 'logistics', SYSTEM_CONFIG.VINIPEL_COST, false)}
+              ${renderTieredToggle('Otro/Varios', 'otherPackagingToggle', 'logistics', SYSTEM_CONFIG.OTHER_PACKAGING_COST, false)}
             </div>
             <p class="text-xs text-zinc-500 mt-3">💡 Montos temporales, pendientes de ajuste</p>
           </div>
@@ -919,7 +976,8 @@ function Calculator() {
             ${r.breakdown.suppliesDetail.magnets > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Imanes/Llaveros</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.magnets)}</span></div>` : ''}
             ${r.breakdown.suppliesDetail.brush > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Pinceles</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.brush)}</span></div>` : ''}
             ${r.breakdown.suppliesDetail.superglue > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Superbonder</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.superglue)}</span></div>` : ''}
-            ${r.breakdown.suppliesDetail.otherRate > 0 ? `<div class="flex justify-between pl-3"><span class="text-amber-400">Otro/Varios (+5%)</span><span class="font-mono text-amber-400">${formatCurrency(r.breakdown.suppliesDetail.otherRate)}</span></div>` : ''}
+            ${r.breakdown.suppliesDetail.magnetsInventory > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Imanes (inventario)</span><span class="font-mono text-white">${formatCurrency(r.breakdown.suppliesDetail.magnetsInventory)}</span></div>` : ''}
+            ${r.breakdown.suppliesDetail.otherRate > 0 ? `<div class="flex justify-between pl-3"><span class="text-amber-400">Otro/Varios (+10%)</span><span class="font-mono text-amber-400">${formatCurrency(r.breakdown.suppliesDetail.otherRate)}</span></div>` : ''}
             <div class="pt-2 mt-1 border-t border-zinc-800"></div>
             <div class="flex justify-between"><span class="text-zinc-400">📦 Empaque</span><span class="font-mono text-white font-bold">${formatCurrency(r.breakdown.packaging)}</span></div>
             ${r.breakdown.packagingExtras > 0 ? `<div class="flex justify-between pl-3"><span class="text-zinc-500">Materiales de Embalaje</span><span class="font-mono text-white">${formatCurrency(r.breakdown.packagingExtras)}</span></div>` : ''}

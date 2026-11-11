@@ -25,6 +25,10 @@ const PACKAGING_ROOTS = { box: 8, bag: 9 };
 // IDs reales en tu tabla materials (Filamento > PLA/PETG/ABS/TPU)
 const FILAMENT_ROOTS = { pla: 4, petg: 13, abs: 20, tpu: 19 };
 
+// IDs en tu tabla materials (Funcional > IMAN > Circular / Rectangular).
+// TODO: reemplazar null por los IDs reales de cada categoría.
+const MAGNET_ROOTS = { circular: null, rectangular: null };
+
 const SHIPPING_OPTIONS = [
   { id: 'pickup', name: 'Recogida', cost: 0, icon: '🏪' },
   { id: 'local', name: 'Local', cost: 15000, icon: '📦' },
@@ -95,10 +99,8 @@ const SYSTEM_CONFIG = {
   FAN_COST: 500,        // toggle manual — ver logistics.fanToggle / config.fanToggle
   BRUSH_COST: 1500,     // pinceles — placeholder, pendiente ajuste
   EXTRAS_FLAT_COST: 2000, // Imanes/Llaveros: ahora monto fijo (antes 2% del precio de venta)
-  OTHER_SUPPLIES_RATE: 0.05, // toggle "Otro/Varios": +5% sobre la suma de insumos activos
-  EVA_COST: 15000,      // Goma EVA — placeholder, pendiente ajuste
-  VINYL_COST: 7000,     // Vinilo Autoadhesivo — placeholder, pendiente ajuste
-  PLIKE_COST: 25000,    // Papel Plike — placeholder, pendiente ajuste
+  OTHER_SUPPLIES_RATE: 0.10, // toggle "Otro/Varios": +10% sobre la suma de insumos activos
+  OTHER_PACKAGING_COST: 10000, // Otro/Varios (embalaje) — valor máximo, mismos niveles $$$/$$/$
   BUBBLE_COST: 1000,    // Papel Burbuja — placeholder, pendiente ajuste
   GLUE_COST: 500,       // Colbón — placeholder, pendiente ajuste
   SUPERGLUE_COST: 500,  // Superbonder (reparación de pieza) — placeholder, pendiente ajuste
@@ -119,7 +121,7 @@ const AUTHORIZED_USERS = [
 
 // EXPOSICIÓN GLOBAL DE CONSTANTES (CRÍTICO)
 window.SICMA_CONSTANTS = {
-  PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, PACKAGING_ROOTS, FILAMENT_ROOTS,
+  PRINTERS, NOZZLES, MATERIALS, SHIPPING_OPTIONS, PACKAGING, PACKAGING_BAG, PACKAGING_ROOTS, FILAMENT_ROOTS, MAGNET_ROOTS,
   COMPLEXITY_LEVELS, GATEWAYS, VARIANT_CONFIGS, MASTER_VARIANT_CONFIGS,
   PACKAGE_CONFIG, SYSTEM_CONFIG, AUTHORIZED_USERS
 };
