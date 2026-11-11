@@ -1,6 +1,7 @@
 /* ZYLOX THEME OVERRIDES */
 
 :root {
+    color-scheme: dark;
     --cyber-primary: #B026FF;
     --cyber-secondary: #39FF14;
     --cyber-bg: rgba(10, 10, 10, 0.85);
@@ -46,6 +47,59 @@ input:focus,
 select:focus {
     border-color: var(--cyber-primary) !important;
     box-shadow: 0 0 10px rgba(176, 38, 255, 0.2);
+}
+
+select,
+select option,
+select optgroup {
+    background-color: #0a0a0c !important;
+    color: #ffffff !important;
+    color-scheme: dark;
+}
+
+select optgroup {
+    color: var(--cyber-primary) !important;
+    font-weight: 800;
+}
+
+/* Selector Cyber personalizado (Filamento / Imanes) */
+.cyber-select-trigger {
+    background-color: rgba(0, 0, 0, 0.6) !important;
+    border: 1px solid #333 !important;
+    color: white !important;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+    user-select: none;
+}
+
+.cyber-select-trigger:hover,
+.cyber-select-trigger:focus {
+    border-color: var(--cyber-primary) !important;
+    box-shadow: 0 0 12px rgba(176, 38, 255, 0.25);
+}
+
+.cyber-picker-item {
+    background-color: rgba(20, 20, 25, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 3px solid #3f3f46;
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+    transition: all 0.18s ease;
+    cursor: pointer;
+}
+
+.cyber-picker-item:hover {
+    border-color: rgba(176, 38, 255, 0.5);
+    border-left-color: var(--cyber-primary);
+    background-color: rgba(176, 38, 255, 0.12);
+    transform: translateX(3px);
+}
+
+.cyber-picker-item.is-selected {
+    border-color: var(--cyber-primary);
+    border-left-color: var(--cyber-secondary);
+    background-color: rgba(176, 38, 255, 0.18);
+    box-shadow: 0 0 12px rgba(176, 38, 255, 0.2);
 }
 
 /* 3. Botones */

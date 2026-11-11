@@ -416,6 +416,206 @@ function Calculator() {
     renderCalculatorWithScroll();
   };
 
+  const cleanMagnetName = (name) => String(name || '').replace(/^IMANES?\s+/i, '').trim();
+
+  // --- CYBER PICKER MODAL (Filamento & Imanes) ---
+  window.closeCyberPicker = () => {
+    const el = document.getElementById('zylox-cyber-picker');
+    if (el) el.remove();
+  };
+
+  window.openFilamentPicker = (slotIndex) => {
+    window.closeCyberPicker();
+    const selectedMat = MATERIALS.find(m => m.id === state.config.material);
+    const rootId = FILAMENT_ROOTS[state.config.material];
+    const cached = state._materialOptions && state._materialOptions[rootId];
+    const items = (cached && !cached.error) ? cached.items : [];
+    const currentId = state.print.colorSlots[slotIndex]?.materialId;
+
+    const renderItems = (term = '') => {
+      const q = term.trim().toLowerCase();
+      const filtered = q ? items.filter(m => (m.display_name || '').toLowerCase().includes(q)) : items;
+      if (filtered.length === 0) {
+        return `<div class="text-center py-8 text-zinc-600 font-mono text-xs uppercase tracking-widest">Sin resultados</div>`;
+      }
+      return filtered.map(m => {
+        const isSel = String(currentId) === String(m.id);
+        const noStock = Number(m.current_quantity) <= 0;
+        return `
+          <div onclick="selectSlotMaterial(${slotIndex}, '${m.id}'); closeCyberPicker();"
+               class="cyber-picker-item ${isSel ? 'is-selected' : ''} p-3 flex items-center justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <div class="text-xs font-bold text-white uppercase tracking-wide truncate flex items-center gap-2">
+                ${isSel ? '<span class="text-[#39FF14]">▸</span>' : ''}
+                <span class="truncate">${m.display_name}</span>
+              </div>
+              <div class="text-[10px] font-mono mt-0.5 ${noStock ? 'text-amber-400' : 'text-zinc-500'}">
+                ${noStock ? '⚠️ SIN STOCK' : `STOCK: ${formatCurrency(m.current_quantity)}g`}
+              </div>
+            </div>
+            <div class="text-right shrink-0">
+              <div class="text-xs font-mono font-bold text-[#39FF14]">$${formatCurrency(m.cost_per_unit)}</div>
+              <div class="text-[9px] font-mono text-zinc-500 uppercase">por kg</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+
+    window._filterCyberPicker = (val) => {
+      const listEl = document.getElementById('cyber-picker-list');
+      if (listEl) listEl.innerHTML = renderItems(val);
+    };
+
+    const modal = document.createElement('div');
+    modal.id = 'zylox-cyber-picker';
+    modal.className = 'fixed inset-0 z-[250] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in';
+    modal.onclick = (e) => { if (e.target === modal) window.closeCyberPicker(); };
+    modal.innerHTML = `
+      <div class="bg-zinc-900 border border-purple-500/40 w-full max-w-md max-h-[82vh] flex flex-col p-0 shadow-2xl">
+        <div class="p-4 border-b border-zinc-800 shrink-0">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <div class="text-[10px] font-mono text-purple-400 uppercase tracking-widest">// INVENTARIO · SLOT #${slotIndex + 1}</div>
+              <h3 class="text-sm font-black text-white uppercase italic">Filamento ${selectedMat ? selectedMat.name : ''}</h3>
+            </div>
+            <span class="text-[10px] font-mono text-[#39FF14] bg-[#39FF14]/10 border border-[#39FF14]/30 px-2 py-0.5">${items.length} COLORES</span>
+          </div>
+          <div class="relative">
+            <input type="text" oninput="window._filterCyberPicker(this.value)"
+              class="w-full h-10 bg-black/70 border border-zinc-700 px-3 text-xs font-mono text-white focus:outline-none placeholder-zinc-600"
+              placeholder="Buscar color o marca..." autofocus />
+          </div>
+        </div>
+        <div id="cyber-picker-list" class="flex-1 overflow-y-auto p-3 space-y-2 no-scrollbar">
+          ${renderItems('')}
+        </div>
+        <div class="p-3 border-t border-zinc-800 flex gap-2 shrink-0">
+          ${currentId ? `<button onclick="selectSlotMaterial(${slotIndex}, ''); closeCyberPicker();" class="flex-1 py-2.5 bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-red-400 text-xs font-bold uppercase">Limpiar</button>` : ''}
+          <button onclick="closeCyberPicker()" class="flex-1 py-2.5 bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white text-xs font-bold uppercase">Cerrar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  };
+
+  window.openMagnetPicker = (lineIndex) => {
+    window.closeCyberPicker();
+    const mo = getMagnetOptions();
+    const currentId = state.labor.magnets[lineIndex]?.materialId;
+    let activeTab = 'all';
+    let searchTerm = '';
+
+    const renderMagnetList = () => {
+      const q = searchTerm.trim().toLowerCase();
+      const visibleGroups = mo.groups
+        .filter(g => activeTab === 'all' || g.key === activeTab)
+        .map(g => ({
+          ...g,
+          filtered: g.items.filter(it => !q || (it.display_name || '').toLowerCase().includes(q))
+        }))
+        .filter(g => g.filtered.length > 0);
+
+      if (visibleGroups.length === 0) {
+        return `<div class="text-center py-8 text-zinc-600 font-mono text-xs uppercase tracking-widest">Sin resultados</div>`;
+      }
+
+      return visibleGroups.map(g => `
+        <div class="space-y-1.5">
+          <div class="text-[10px] font-mono text-purple-400 uppercase tracking-widest px-1 pt-1 flex items-center justify-between">
+            <span>// ${g.label}</span>
+            <span class="text-zinc-600">${g.filtered.length}</span>
+          </div>
+          ${g.filtered.map(it => {
+            const isSel = String(currentId) === String(it.id);
+            const noStock = Number(it.current_quantity) <= 0;
+            const label = cleanMagnetName(it.display_name);
+            return `
+              <div onclick="selectMagnet(${lineIndex}, '${it.id}'); closeCyberPicker();"
+                   class="cyber-picker-item ${isSel ? 'is-selected' : ''} p-3 flex items-center justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                  <div class="text-xs font-bold text-white uppercase tracking-wide truncate flex items-center gap-2">
+                    ${isSel ? '<span class="text-[#39FF14]">▸</span>' : ''}
+                    <span class="truncate">${label}</span>
+                  </div>
+                  <div class="text-[10px] font-mono mt-0.5 ${noStock ? 'text-amber-400' : 'text-zinc-500'}">
+                    ${noStock ? '⚠️ SIN STOCK' : `STOCK: ${formatCurrency(it.current_quantity)} u.`}
+                  </div>
+                </div>
+                <div class="text-right shrink-0">
+                  <div class="text-xs font-mono font-bold text-[#39FF14]">$${formatCurrency(it.cost_per_unit)}</div>
+                  <div class="text-[9px] font-mono text-zinc-500 uppercase">c/u</div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `).join('<div class="my-2 border-t border-zinc-800/60"></div>');
+    };
+
+    const updateTabsUI = () => {
+      ['all', 'circular', 'rectangular'].forEach(tab => {
+        const btn = document.getElementById(`magnet-tab-${tab}`);
+        if (!btn) return;
+        if (tab === activeTab) {
+          btn.className = 'flex-1 py-1.5 text-[10px] font-mono uppercase tracking-wider bg-purple-600 text-white font-bold';
+        } else {
+          btn.className = 'flex-1 py-1.5 text-[10px] font-mono uppercase tracking-wider bg-zinc-800 text-zinc-400 hover:text-white';
+        }
+      });
+    };
+
+    window._setMagnetPickerTab = (tab) => {
+      activeTab = tab;
+      updateTabsUI();
+      const listEl = document.getElementById('cyber-picker-list');
+      if (listEl) listEl.innerHTML = renderMagnetList();
+    };
+
+    window._filterMagnetPicker = (val) => {
+      searchTerm = val;
+      const listEl = document.getElementById('cyber-picker-list');
+      if (listEl) listEl.innerHTML = renderMagnetList();
+    };
+
+    const totalCount = mo.groups.reduce((acc, g) => acc + g.items.length, 0);
+    const modal = document.createElement('div');
+    modal.id = 'zylox-cyber-picker';
+    modal.className = 'fixed inset-0 z-[250] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in';
+    modal.onclick = (e) => { if (e.target === modal) window.closeCyberPicker(); };
+    modal.innerHTML = `
+      <div class="bg-zinc-900 border border-purple-500/40 w-full max-w-md max-h-[82vh] flex flex-col p-0 shadow-2xl">
+        <div class="p-4 border-b border-zinc-800 shrink-0 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-[10px] font-mono text-purple-400 uppercase tracking-widest">// INVENTARIO · FUNCIONAL</div>
+              <h3 class="text-sm font-black text-white uppercase italic">Seleccionar Imán</h3>
+            </div>
+            <span class="text-[10px] font-mono text-[#39FF14] bg-[#39FF14]/10 border border-[#39FF14]/30 px-2 py-0.5">${totalCount} MEDIDAS</span>
+          </div>
+          <div class="flex gap-1">
+            <button id="magnet-tab-all" onclick="window._setMagnetPickerTab('all')" class="flex-1 py-1.5 text-[10px] font-mono uppercase tracking-wider bg-purple-600 text-white font-bold">Todos</button>
+            <button id="magnet-tab-circular" onclick="window._setMagnetPickerTab('circular')" class="flex-1 py-1.5 text-[10px] font-mono uppercase tracking-wider bg-zinc-800 text-zinc-400 hover:text-white">Circulares</button>
+            <button id="magnet-tab-rectangular" onclick="window._setMagnetPickerTab('rectangular')" class="flex-1 py-1.5 text-[10px] font-mono uppercase tracking-wider bg-zinc-800 text-zinc-400 hover:text-white">Rectangulares</button>
+          </div>
+          <div class="relative">
+            <input type="text" oninput="window._filterMagnetPicker(this.value)"
+              class="w-full h-10 bg-black/70 border border-zinc-700 px-3 text-xs font-mono text-white focus:outline-none placeholder-zinc-600"
+              placeholder="Buscar medida (ej. 6x2, 8x3)..." autofocus />
+          </div>
+        </div>
+        <div id="cyber-picker-list" class="flex-1 overflow-y-auto p-3 space-y-3 no-scrollbar">
+          ${renderMagnetList()}
+        </div>
+        <div class="p-3 border-t border-zinc-800 flex gap-2 shrink-0">
+          ${currentId ? `<button onclick="selectMagnet(${lineIndex}, ''); closeCyberPicker();" class="flex-1 py-2.5 bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-red-400 text-xs font-bold uppercase">Limpiar</button>` : ''}
+          <button onclick="closeCyberPicker()" class="flex-1 py-2.5 bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white text-xs font-bold uppercase">Cerrar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  };
+
   window.removeColorSlot = (index) => {
     if (index === 0) return; // el primero es obligatorio, no se quita
     state.print.colorSlots.splice(index, 1);
@@ -566,15 +766,27 @@ function Calculator() {
           <div class="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">⚠️ No pude conectar con tu inventario.</div>` : cachedFilament.items.length === 0 ? `
           <div class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm text-amber-400">⚠️ Todavía no tienes colores cargados para ${selectedMaterial ? selectedMaterial.name : 'este material'} en tu inventario.</div>` : `
           <div class="space-y-3">
-            ${state.print.colorSlots.map((slot, i) => `
+            ${state.print.colorSlots.map((slot, i) => {
+              const selItem = cachedFilament.items.find(m => String(m.id) === String(slot.materialId));
+              const noStock = selItem && Number(selItem.current_quantity) <= 0;
+              return `
             <div class="flex gap-2 items-center">
-              <select onchange="selectSlotMaterial(${i}, this.value)" class="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-cyan-500">
-                <option value="">Selecciona...</option>
-                ${cachedFilament.items.map(m => `<option value="${m.id}" ${slot.materialId === m.id ? 'selected' : ''}>${m.display_name}${m.current_quantity <= 0 ? ' ⚠️' : ''}</option>`).join('')}
-              </select>
+              <div onclick="openFilamentPicker(${i})" class="cyber-select-trigger flex-1 min-w-0 px-3 py-3 flex items-center justify-between gap-2">
+                <div class="min-w-0 flex-1 flex items-center gap-2">
+                  ${selItem ? `
+                    <span class="text-xs font-bold text-white uppercase truncate">${selItem.display_name}</span>
+                    ${noStock ? '<span class="text-[10px] text-amber-400 shrink-0">⚠️</span>' : ''}
+                  ` : `<span class="text-xs font-mono text-zinc-500 uppercase">Selecciona color...</span>`}
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  ${selItem ? `<span class="text-[10px] font-mono text-[#39FF14]">$${formatCurrency(selItem.cost_per_unit)}/kg</span>` : ''}
+                  <span class="text-purple-400 text-xs font-mono">▾</span>
+                </div>
+              </div>
               <input type="text" inputmode="decimal" value="${slot.grams || ''}" oninput="window.calculatorState.print.colorSlots[${i}].grams = parseFloat(this.value) || 0" onblur="updateSlotGrams(${i}, this.value)" class="w-16 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-3 text-sm text-cyan-400 font-bold text-right focus:outline-none focus:border-cyan-500" placeholder="g" maxlength="7" />
               ${i > 0 ? `<button onclick="removeColorSlot(${i})" class="text-zinc-500 hover:text-red-400 px-2 text-lg">✕</button>` : `<div class="w-7"></div>`}
-            </div>`).join('')}
+            </div>`;
+            }).join('')}
           </div>
           ${state.print.colorSlots.length < 20 ? `<button onclick="addColorSlot()" class="mt-3 text-sm text-cyan-400 font-semibold">+ Agregar Color</button>` : ''}
           <div class="mt-4 pt-4 border-t border-zinc-800 space-y-1">
@@ -733,7 +945,7 @@ function Calculator() {
       state.logistics.packagingCustom = preset.packagingCustom;
       state.logistics.additionalsToggle = preset.additionalsToggle;
       state.logistics.isFreeShipping = preset.isFreeShipping;
-      state.logistics.otherPackagingToggle = !!preset.otherPackagingToggle;
+      state.logistics.otherPackagingToggle = preset.otherPackagingToggle;
       state.logistics.bubbleToggle = preset.bubbleToggle;
       state.logistics.glueToggle = preset.glueToggle;
       state.logistics.vinipelToggle = preset.vinipelToggle;
@@ -807,7 +1019,7 @@ function Calculator() {
               </div>
               <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-zinc-400 ml-9">
                 <div>• Complejidad: <span class="text-white font-semibold">${complexityLabel}</span></div>
-                <div>• Insumos: <span class="text-white font-semibold">${[preset.primerToggle && 'Primer', preset.lacquerToggle && 'Laca', preset.sandingToggle && 'Lija', preset.paintToggle && 'Pintura', preset.brushToggle && 'Pinceles', preset.superglueToggle && 'Superbonder', preset.additionalsToggle && 'Imanes', preset.otherSuppliesToggle && 'Otros'].filter(Boolean).join(', ') || 'Ninguno'}</span></div>
+                <div>• Insumos: <span class="text-white font-semibold">${[preset.primerToggle && 'Primer', preset.lacquerToggle && 'Laca', preset.sandingToggle && 'Lija', preset.paintToggle && 'Pintura', preset.brushToggle && 'Pinceles', preset.superglueToggle && 'Superbonder', preset.additionalsToggle && 'Llaveros', preset.otherSuppliesToggle && 'Otros'].filter(Boolean).join(', ') || 'Ninguno'}</span></div>
                 <div>• Envío: <span class="text-white font-semibold">${preset.shipping === 'pickup' ? 'Recogida' : preset.shipping === 'local' ? 'Local' : 'Nacional'}</span></div>
                 <div>• Empaque: <span class="text-white font-semibold">${preset.packagingType === 'box' ? '📦 Caja' : '🎒 Bolsa'}${preset._packagingLabel ? ' - ' + preset._packagingLabel : ''}</span></div>
                 <div>• Embalaje: <span class="text-white font-semibold">${[preset.otherPackagingToggle && 'Otro/Varios', preset.bubbleToggle && 'Burbuja', preset.glueToggle && 'Colbón', preset.vinipelToggle && 'Vinipel'].filter(Boolean).join(', ') || 'Ninguno'}</span></div>
@@ -856,19 +1068,31 @@ function Calculator() {
               if (mo.error && allItems.length === 0) return `<div class="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">⚠️ No pude conectar con tu inventario de imanes.</div>`;
               if (allItems.length === 0) return `<div class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm text-amber-400">⚠️ Todavía no tienes imanes cargados en tu inventario.</div>`;
               return `<div class="space-y-3">
-                ${lines.map((m, i) => `
+                ${lines.map((m, i) => {
+                  const selItem = allItems.find(x => String(x.id) === String(m.materialId));
+                  const noStock = selItem && Number(selItem.current_quantity) <= 0;
+                  return `
                 <div class="flex gap-2 items-center">
-                  <select onchange="selectMagnet(${i}, this.value)" class="flex-1 min-w-0 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-cyan-500">
-                    <option value="">Selecciona...</option>
-                    ${mo.groups.filter(g => g.items.length).map(g => `<optgroup label="${g.label}">${g.items.map(it => `<option value="${it.id}" ${String(m.materialId) === String(it.id) ? 'selected' : ''}>${it.display_name} - ${formatCurrency(it.cost_per_unit)}${it.current_quantity <= 0 ? ' ⚠️' : ''}</option>`).join('')}</optgroup>`).join('')}
-                  </select>
+                  <div onclick="openMagnetPicker(${i})" class="cyber-select-trigger flex-1 min-w-0 px-3 py-3 flex items-center justify-between gap-2">
+                    <div class="min-w-0 flex-1 flex items-center gap-2">
+                      ${selItem ? `
+                        <span class="text-xs font-bold text-white uppercase truncate">${cleanMagnetName(selItem.display_name)}</span>
+                        ${noStock ? '<span class="text-[10px] text-amber-400 shrink-0">⚠️</span>' : ''}
+                      ` : `<span class="text-xs font-mono text-zinc-500 uppercase">Selecciona imán...</span>`}
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                      ${selItem ? `<span class="text-[11px] font-mono font-bold text-[#39FF14]">$${formatCurrency(selItem.cost_per_unit)}</span>` : ''}
+                      <span class="text-purple-400 text-xs font-mono">▾</span>
+                    </div>
+                  </div>
                   <input type="text" inputmode="numeric" value="${m.qty || ''}" oninput="window.calculatorState.labor.magnets[${i}].qty = Math.max(0, parseInt(this.value, 10) || 0)" onblur="updateMagnetQty(${i}, this.value)" class="w-16 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-3 text-sm text-cyan-400 font-bold text-right focus:outline-none focus:border-cyan-500" placeholder="u" maxlength="4" />
                   ${lines.length > 1 || m.materialId ? `<button onclick="removeMagnetLine(${i})" class="text-zinc-500 hover:text-red-400 px-2 text-lg">✕</button>` : `<div class="w-7"></div>`}
-                </div>`).join('')}
+                </div>`;
+                }).join('')}
               </div>
               <button onclick="addMagnetLine()" class="mt-3 text-sm text-cyan-400 font-semibold">+ Agregar Imán</button>
               ${lines.some(m => m.materialId && m.qty > 0) ? `<div class="mt-4 pt-4 border-t border-zinc-800 space-y-1">
-                ${lines.filter(m => m.materialId && m.qty > 0).map(m => { const it = allItems.find(x => String(x.id) === String(m.materialId)); return `<div class="flex justify-between text-xs"><span class="text-zinc-500">${m.qty} × ${it ? it.display_name : '?'}</span><span class="text-zinc-300 font-mono">${formatCurrency(m.qty * m.unitCost)}</span></div>`; }).join('')}
+                ${lines.filter(m => m.materialId && m.qty > 0).map(m => { const it = allItems.find(x => String(x.id) === String(m.materialId)); return `<div class="flex justify-between text-xs"><span class="text-zinc-500">${m.qty} × ${it ? cleanMagnetName(it.display_name) : '?'}</span><span class="text-zinc-300 font-mono">${formatCurrency(m.qty * m.unitCost)}</span></div>`; }).join('')}
                 <div class="flex justify-between text-sm pt-1"><span class="text-white font-bold">Total Imanes</span><span class="text-cyan-400 font-mono font-bold">${formatCurrency(total)}</span></div>
               </div>` : ''}`;
             })()}
