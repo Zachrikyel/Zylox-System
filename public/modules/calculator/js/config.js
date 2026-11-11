@@ -25,9 +25,8 @@ const PACKAGING_ROOTS = { box: 8, bag: 9 };
 // IDs reales en tu tabla materials (Filamento > PLA/PETG/ABS/TPU)
 const FILAMENT_ROOTS = { pla: 4, petg: 13, abs: 20, tpu: 19 };
 
-// IDs en tu tabla materials (Funcional > IMAN > Circular / Rectangular).
-// TODO: reemplazar null por los IDs reales de cada categoría.
-const MAGNET_ROOTS = { circular: null, rectangular: null };
+// IDs reales en tu tabla materials (Funcional=3 > IMAN Circular=63, IMAN Rectangular=64)
+const MAGNET_ROOTS = { circular: 63, rectangular: 64 };
 
 const SHIPPING_OPTIONS = [
   { id: 'pickup', name: 'Recogida', cost: 0, icon: '🏪' },

@@ -599,33 +599,6 @@ async function loadMaterialOptions(rootId) {
   if (window.renderModule) window.renderModule();
 }
 
-// Resuelve los IDs de Funcional > IMAN > Circular/Rectangular buscando por nombre en materials,
-// para no depender de IDs fijos. Si MAGNET_ROOTS ya trae IDs en config.js, esos tienen prioridad.
-async function resolveMagnetRoots() {
-  const state = window.calculatorState;
-  const fixed = window.SICMA_CONSTANTS.MAGNET_ROOTS || {};
-  const norm = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-  const result = { circular: fixed.circular || null, rectangular: fixed.rectangular || null };
-  try {
-    if (!result.circular || !result.rectangular) {
-      const supabase = getSupabase();
-      const { data, error } = await supabase.from('materials').select('id, name, parent_id');
-      if (error) throw error;
-      const iman = (data || []).find(m => norm(m.name) === 'iman' || norm(m.name) === 'imanes');
-      if (iman) {
-        const kids = data.filter(m => m.parent_id === iman.id);
-        const find = (word) => (kids.find(k => norm(k.name).includes(word)) || {}).id || null;
-        result.circular = result.circular || find('circular');
-        result.rectangular = result.rectangular || find('rectangular');
-      }
-    }
-  } catch (e) {
-    console.error('❌ No pude resolver las categorías de imanes:', e);
-  }
-  state._magnetRoots = result;
-  if (window.renderModule) window.renderModule();
-}
-
 async function saveQuote(quoteData) {
   try {
     const supabase = getSupabase();
@@ -992,7 +965,6 @@ window.Storage = {
   getProducts,
   saveQuote,
   generateVariantsForQuote,
-  resolveMagnetRoots,
   getQuotes,
   getQuoteById,
   searchQuotes,
